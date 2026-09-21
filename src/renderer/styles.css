@@ -1,0 +1,1579 @@
+:root {
+  /* 让原生 time 控件 / 滚动条跟着走浅色，否则会嵌着一块刺眼的白 */
+  color-scheme: light;
+  --bg-a: #eef6ff;
+  --bg-b: #a6c6ee;
+  --bg-glow: rgba(255, 255, 255, 0.85);
+  --bg-glow-2: rgba(112, 190, 238, 0.95);
+  /* 液态玻璃：厚虚化 + 高饱和，一圈内描边 + 左上镜面高光 */
+  --glass: blur(26px) saturate(1.9);
+  --edge: inset 0 0 0 1px rgba(255, 255, 255, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --sheen: radial-gradient(120% 100% at 12% 0%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.22) 40%, rgba(255, 255, 255, 0) 72%);
+  --panel: rgba(255, 255, 255, 0.42);
+  --card: rgba(255, 255, 255, 0.52);
+  --card-2: rgba(255, 255, 255, 0.74);
+  --chip: rgba(255, 255, 255, 0.82);
+  --field: rgba(96, 148, 208, 0.14);
+  --line: rgba(96, 140, 196, 0.34);
+  --line-soft: rgba(96, 140, 196, 0.22);
+  --text: #1b2434;
+  --muted: #64748b;
+  --muted-2: #97a3b8;
+  --accent: #3d74f0;
+  --accent-2: #2f6ae0;
+  --accent-soft: rgba(234, 241, 255, 0.85);
+  --high: #e05252;
+  --mid: #3d74f0;
+  --low: #7c8798;
+  --soon: #d9821f;
+  --danger: #e05252;
+  --on-accent: #ffffff;
+  --hover: rgba(232, 239, 250, 0.75);
+  --scroll: rgba(151, 176, 214, 0.45);
+  --scroll-hover: rgba(119, 149, 201, 0.62);
+  --pill-bg: rgba(237, 242, 250, 0.85);
+  --pill-high: rgba(255, 122, 112, 0.13);
+  --btn-hover-bg: rgba(240, 246, 254, 0.95);
+  --btn-hover-line: rgba(151, 176, 214, 0.45);
+  --seg-hover: rgba(255, 255, 255, 0.6);
+  --card-hover-line: rgba(151, 176, 214, 0.45);
+  --check-line: rgba(151, 176, 214, 0.5);
+  --switch-off: rgba(190, 205, 228, 0.7);
+  --knob: #ffffff;
+  --track-off: rgba(190, 205, 228, 0.45);
+  --danger-line: rgba(240, 150, 148, 0.45);
+  --danger-hover-bg: rgba(255, 122, 112, 0.11);
+  --danger-hover-line: rgba(232, 130, 128, 0.6);
+  --danger-hover-fg: #c9403f;
+  --grad-a: #4aa3f5;
+  --grad-b: #2f72e0;
+  --grad-ha: #3f97ef;
+  --grad-hb: #2a66d2;
+  --grip-a: #4aa3f5;
+  --grip-b: #7ad6f2;
+  --rail: 54px;
+  --pad: 20px;
+  --radius: 22px;
+  --shadow: 0 1px 2px rgba(96, 128, 180, 0.06), 0 10px 26px rgba(96, 128, 180, 0.12);
+  --shadow-lg: 0 2px 8px rgba(96, 128, 180, 0.08), 0 22px 52px rgba(96, 128, 180, 0.2);
+}
+
+/* 深色：只换令牌，所有规则照旧 */
+body.dark {
+  color-scheme: dark;
+  /* 冷色液态玻璃：钢蓝 → 墨黑，左上蓝光、右下青光（不用紫，紫会偏暖） */
+  --bg-a: #0f2144;
+  --bg-b: #03060f;
+  --bg-glow: rgba(56, 138, 232, 0.45);
+  --bg-glow-2: rgba(46, 196, 226, 0.26);
+  --glass: blur(26px) saturate(1.7);
+  --edge: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  --sheen: radial-gradient(120% 100% at 12% 0%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 40%, rgba(255, 255, 255, 0) 72%);
+  --panel: rgba(255, 255, 255, 0.05);
+  --card: rgba(255, 255, 255, 0.07);
+  --card-2: rgba(14, 26, 52, 0.86);
+  --chip: rgba(255, 255, 255, 0.16);
+  --field: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.16);
+  --line-soft: rgba(255, 255, 255, 0.09);
+  --text: #eaf0fb;
+  --muted: #a3b0c8;
+  --muted-2: #8695af;
+  --accent: #6aa6f7;
+  --accent-2: #4a90ea;
+  --accent-soft: rgba(106, 166, 247, 0.2);
+  --high: #ff8a86;
+  --mid: #6aa6f7;
+  --low: #93a1b8;
+  --soon: #f5a524;
+  --danger: #ff8a86;
+  --on-accent: #ffffff;
+  --hover: rgba(255, 255, 255, 0.09);
+  --scroll: rgba(255, 255, 255, 0.22);
+  --scroll-hover: rgba(255, 255, 255, 0.36);
+  --pill-bg: rgba(255, 255, 255, 0.1);
+  --pill-high: rgba(255, 122, 112, 0.18);
+  --btn-hover-bg: rgba(255, 255, 255, 0.2);
+  --btn-hover-line: rgba(255, 255, 255, 0.28);
+  --seg-hover: rgba(255, 255, 255, 0.12);
+  --card-hover-line: rgba(255, 255, 255, 0.24);
+  --check-line: rgba(255, 255, 255, 0.28);
+  --switch-off: rgba(255, 255, 255, 0.22);
+  --knob: #e9eef6;
+  --track-off: rgba(255, 255, 255, 0.2);
+  --danger-line: rgba(255, 122, 112, 0.4);
+  --danger-hover-bg: rgba(255, 122, 112, 0.16);
+  --danger-hover-line: rgba(255, 122, 112, 0.55);
+  --danger-hover-fg: #ff9a95;
+  --grad-a: #4f9ff0;
+  --grad-b: #2a63cf;
+  --grad-ha: #5fabf5;
+  --grad-hb: #3572dd;
+  --grip-a: #4f9ff0;
+  --grip-b: #6fd8f2;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.4), 0 22px 54px rgba(0, 0, 0, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 58% at 10% -10%, var(--bg-glow) 0%, transparent 60%),
+    radial-gradient(95% 55% at 106% 108%, var(--bg-glow-2) 0%, transparent 62%),
+    linear-gradient(155deg, var(--bg-a) 0%, var(--bg-b) 100%);
+  color: var(--text);
+  font-family: "Microsoft YaHei UI", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  user-select: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scroll);
+  background-clip: padding-box;
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-hover);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- 标题栏（唯一可拖动区域之一） ---------- */
+.titlebar {
+  flex: 0 0 auto;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-left: 14px;
+  -webkit-app-region: drag;
+}
+
+.tb-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--text);
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--on-accent);
+  background: linear-gradient(145deg, var(--grad-a), var(--grad-b));
+  box-shadow: 0 4px 10px rgba(61, 116, 240, 0.3);
+}
+
+.tb-fill {
+  flex: 1 1 auto;
+}
+
+.tb-btns {
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.tb-btn {
+  width: 44px;
+  height: 36px;
+  margin: 0 8px 0 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted-2);
+  border-radius: 10px;
+  cursor: default;
+}
+
+.tb-btn:hover {
+  background: var(--field);
+  color: var(--text);
+}
+
+.tb-close:hover {
+  background: var(--danger);
+  color: var(--on-accent);
+}
+
+/* ---------- 主体 ---------- */
+.shell {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+
+.rail {
+  flex: 0 0 var(--rail);
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0;
+  margin: 10px 0 10px 10px;
+  border-radius: calc(var(--radius) + 4px);
+  border: 1px solid var(--line-soft);
+  background: var(--panel);
+  background-image: var(--sheen);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  box-shadow: var(--edge), var(--shadow);
+}
+
+.rail-btn {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted-2);
+  cursor: default;
+  transition: background 0.15s, color 0.15s;
+}
+
+.rail-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.rail-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(61, 116, 240, 0.16);
+}
+
+.content {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* 左侧栏改成悬浮胶囊后占掉 10px 外边距，这里扣回来，内容列位置不变 */
+  padding: 10px var(--pad) 0 calc(var(--pad) - 10px);
+}
+
+[hidden] { display: none !important; }
+
+.view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ---------- 快速添加 ---------- */
+.add {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+#add-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 120px;
+  resize: none;
+  overflow: hidden;
+  padding: 11px 14px;
+  background: var(--card);
+  background-image: var(--sheen);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  outline: none;
+  user-select: text;
+  box-shadow: var(--edge), var(--shadow);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+#add-input::placeholder {
+  color: var(--muted-2);
+}
+
+#add-input:focus {
+  border-color: rgba(61, 116, 240, 0.55);
+  box-shadow: var(--shadow), 0 0 0 3px rgba(61, 116, 240, 0.1);
+}
+
+.add-btn {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--grad-a), var(--grad-b));
+  color: var(--on-accent);
+  cursor: default;
+  box-shadow: 0 5px 14px rgba(61, 116, 240, 0.36);
+  transition: transform 0.12s, box-shadow 0.15s;
+}
+
+.add-btn:hover {
+  box-shadow: 0 7px 18px rgba(61, 116, 240, 0.45);
+}
+
+.add-btn:active {
+  transform: scale(0.94);
+}
+
+/* ---------- Tab ---------- */
+.tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 26px;
+  margin: 18px 0 0;
+  padding-bottom: 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.tab {
+  position: relative;
+  padding: 6px 0 10px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: default;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.is-active {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.tab.is-active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/* ---------- 列表 ---------- */
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin-right: calc(8px - var(--pad));
+  padding: 13px max(0px, calc(var(--pad) - 8px)) 18px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-gutter: stable;
+}
+
+.card {
+  --indent: 29px; /* 勾选框 20px + row gap 9px，让第二行与标题严格对齐 */
+  flex: 0 0 auto;
+  min-width: 0;
+  background: var(--card);
+  background-image: var(--sheen);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 13px 13px 13px 11px;
+  cursor: pointer;
+  box-shadow: var(--edge), var(--shadow);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.card:hover {
+  border-color: var(--card-hover-line);
+  box-shadow: var(--edge), 0 1px 2px rgba(96, 128, 180, 0.08), 0 14px 32px rgba(96, 128, 180, 0.16);
+}
+
+.card.is-open {
+  border-color: rgba(61, 116, 240, 0.35);
+  box-shadow: var(--edge), var(--shadow), 0 0 0 3px rgba(61, 116, 240, 0.09);
+}
+
+/* 深色下蓝色柔光几乎看不见，描边和光圈都要换成冷白 + 亮蓝 */
+body.dark .card:hover {
+  box-shadow: var(--edge), 0 0 0 1px rgba(255, 255, 255, 0.12), 0 14px 34px rgba(0, 0, 0, 0.5);
+}
+
+body.dark .card.is-open {
+  border-color: rgba(106, 166, 247, 0.45);
+  box-shadow: var(--edge), var(--shadow), 0 0 0 3px rgba(106, 166, 247, 0.16);
+}
+
+.card.is-done .t-title {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.check {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1.6px solid var(--check-line);
+  border-radius: 7px;
+  background: var(--chip);
+  color: transparent;
+  cursor: default;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.check:hover {
+  border-color: var(--accent);
+}
+
+.card.is-done .check {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.t-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 10px 0 9px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  background: var(--pill-bg);
+  color: var(--low);
+  cursor: default;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.p-high .pill {
+  background: var(--pill-high);
+  color: var(--high);
+}
+.p-mid .pill {
+  background: var(--accent-soft);
+  color: var(--mid);
+}
+.p-low .pill {
+  background: var(--pill-bg);
+  color: var(--low);
+}
+
+.chev {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  color: var(--muted-2);
+  transition: transform 0.18s, color 0.15s;
+  cursor: default;
+}
+
+.card.is-open .chev {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+/* 第二行：详细内容预览；第三行：创建时间 + 截止时间 */
+.pline {
+  min-width: 0;
+  margin-top: 7px;
+  padding-left: var(--indent);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  /* 不能用 baseline：.due 是 inline-flex，它的基线取自第一个子项（时钟图标），
+     svg 没有基线会被当成底边，导致两段时间一高一低 */
+  align-items: center;
+  /* 窄到最小宽度时让「截止」整块换行，而不是冲出卡片边框 */
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  min-width: 0;
+  margin-top: 5px;
+  padding-left: var(--indent);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.card.is-done .pline,
+.card.is-done .meta {
+  opacity: 0.75;
+}
+
+.created {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.due {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta svg {
+  flex: 0 0 auto;
+  display: block;
+  opacity: 0.8;
+}
+
+.due-soon {
+  color: var(--soon);
+  font-weight: 600;
+}
+
+.due-soon .due-tag {
+  color: var(--soon);
+  font-weight: 600;
+}
+
+.due-over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ---------- 展开详情 ---------- */
+.detail {
+  margin: 13px 0 3px var(--indent);
+  padding-top: 13px;
+  border-top: 1px solid var(--line-soft);
+  display: grid;
+  gap: 11px;
+  cursor: default;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field > span {
+  font-size: 11px;
+  color: var(--muted-2);
+  letter-spacing: 0.3px;
+}
+
+.field input[type="text"],
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 11px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  outline: none;
+  user-select: text;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+/* 日期/时间框做成按钮：点开的是自绘面板，不是系统那套改不动样式、还会无限循环滚动的控件 */
+.date-btn,
+.time-btn {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 11px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--text);
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+
+.date-btn {
+  flex: 1.25 1 0;
+}
+
+.time-btn {
+  flex: 1 1 0;
+}
+
+.time-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.date-btn .dv,
+.time-btn .tv {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-btn .dv.ph,
+.time-btn .tv.ph {
+  color: var(--muted-2);
+}
+
+.date-btn svg,
+.time-btn svg {
+  flex: 0 0 auto;
+  opacity: 0.45;
+}
+
+.date-btn:hover:not(:disabled),
+.time-btn:hover:not(:disabled) {
+  border-color: rgba(61, 116, 240, 0.5);
+}
+
+.date-btn:hover:not(:disabled) svg,
+.time-btn:hover:not(:disabled) svg {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* 日期框带日历图标，比纯文本框吃宽度；两边一起挤就按 1.25:1 分 */
+.due-row {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field textarea {
+  min-height: 40px;
+  max-height: 260px;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.55;
+}
+
+.field input:focus,
+.field textarea:focus,
+.date-btn:focus-visible,
+.time-btn:focus-visible {
+  border-color: rgba(61, 116, 240, 0.55);
+  box-shadow: 0 0 0 3px rgba(61, 116, 240, 0.1);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.stamp {
+  font-size: 11.5px;
+  color: var(--muted-2);
+}
+
+.acts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.btn {
+  padding: 6px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--chip);
+  color: var(--muted);
+  cursor: default;
+  /* 窄窗口里按钮文字不许折行成「确 / 定」，宁可压缩内边距 */
+  white-space: nowrap;
+  flex: 0 0 auto;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.btn:hover {
+  border-color: var(--btn-hover-line);
+  background: var(--btn-hover-bg);
+  color: var(--text);
+}
+
+/* 优先级三个按钮合成一个分段控件（DOM 没变，只是给底槽画个框） */
+.field .acts {
+  gap: 3px;
+  padding: 3px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  flex-wrap: nowrap;
+}
+
+.field .acts .btn {
+  flex: 1 1 0;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: center;
+}
+
+.field .acts .btn:hover {
+  background: var(--seg-hover);
+  border-color: transparent;
+}
+
+.btn.is-on {
+  background: var(--chip);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(20, 32, 58, 0.12);
+}
+
+.field .acts .btn.is-on[data-p="high"] {
+  color: var(--high);
+}
+
+.btn-primary {
+  border-color: transparent;
+  background: linear-gradient(145deg, var(--grad-a), var(--grad-b));
+  color: var(--on-accent);
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(61, 116, 240, 0.3);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(145deg, var(--grad-ha), var(--grad-hb));
+  border-color: transparent;
+  color: var(--on-accent);
+}
+
+.btn-primary[disabled] {
+  opacity: 0.4;
+  box-shadow: none;
+}
+
+.btn-ghost {
+  color: var(--muted);
+}
+
+.acts.confirm {
+  margin-top: -2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+/* 按钮钉在最下方：提示那一行常驻占位（干净态只是看不见），所以按钮不会被推走 */
+.confirm-btns {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.dirty-tip {
+  flex: 0 0 auto;
+  height: 17px;
+  line-height: 17px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--soon);
+  visibility: hidden;
+}
+
+.card.is-dirty .dirty-tip {
+  visibility: visible;
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: var(--danger-line);
+}
+
+.btn-danger:hover {
+  background: var(--pill-high);
+  border-color: var(--danger-hover-line);
+  color: var(--danger-hover-fg);
+}
+
+.empty {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  color: var(--muted-2);
+  font-size: 13px;
+}
+
+/* ---------- 设置 ---------- */
+#view-settings {
+  gap: 12px;
+  margin-right: calc(8px - var(--pad));
+  padding: 6px max(0px, calc(var(--pad) - 10px)) 18px 6px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.set-group {
+  background: var(--card);
+  background-image: var(--sheen);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 13px 15px;
+  box-shadow: var(--edge), var(--shadow);
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+}
+
+.set-row-col {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+/* 分组标题：图标底板 + 名称，和参考图一样每项前面带个标志 */
+.set-head {
+  min-height: 34px;
+  justify-content: flex-start;
+  gap: 9px;
+  margin-bottom: 4px;
+}
+
+.set-ico {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.set-ico svg {
+  display: block;
+}
+
+.set-head .set-label {
+  font-size: 14px;
+}
+
+.set-head .set-value {
+  margin-left: auto;
+}
+
+/* 主题二选一：复用分段控件的样子，但不依赖 .field 父级 */
+.set-seg {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.set-seg .btn {
+  flex: 1 1 0;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: center;
+}
+
+.set-seg .btn:hover {
+  background: var(--seg-hover);
+  border-color: transparent;
+}
+
+.set-label {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.set-value {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.set-path {
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  user-select: text;
+  word-break: break-all;
+  background: var(--field);
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  padding: 5px 8px;
+  width: 100%;
+}
+
+.set-hint {
+  margin: 9px 0 0;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--muted-2);
+}
+
+.set-warn {
+  color: var(--danger);
+}
+
+/* 复选框画成开关：功能还是那个 checkbox，只是换了张脸 */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 23px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--switch-off);
+  cursor: default;
+  transition: background 0.16s;
+}
+
+input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--knob);
+  box-shadow: 0 1px 3px rgba(20, 32, 58, 0.25);
+  transition: left 0.16s;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent);
+}
+
+input[type="checkbox"]:checked::after {
+  left: 20px;
+}
+
+/* ---------- 透明度滑块 ---------- */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 22px;
+  margin: 4px 0 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: default;
+}
+
+.slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) var(--fill, 100%),
+    var(--track-off) var(--fill, 100%)
+  );
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--knob);
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(20, 32, 58, 0.22);
+  transition: transform 0.12s;
+}
+
+.slider:hover::-webkit-slider-thumb,
+.slider:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+/* ---------- 吸附时露出的触发条 ---------- */
+.grip {
+  display: none;
+  position: fixed;
+  z-index: 20;
+  -webkit-app-region: drag;
+}
+
+.grip i {
+  position: absolute;
+  background: var(--on-accent);
+  border-radius: 50%;
+  width: 3px;
+  height: 3px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.grip i:nth-child(1) {
+  margin-top: -9px;
+}
+.grip i:nth-child(3) {
+  margin-top: 9px;
+}
+
+body.snap-right .grip-left {
+  display: block;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 6px;
+  background: linear-gradient(90deg, var(--grip-a), var(--grip-b));
+  box-shadow: 0 0 10px rgba(61, 116, 240, 0.45);
+  border-radius: 0 3px 3px 0;
+}
+
+body.snap-top .grip-bottom {
+  display: block;
+  bottom: 0;
+  left: 22%;
+  right: 22%;
+  height: 6px;
+  background: linear-gradient(180deg, var(--grip-a), var(--grip-b));
+  box-shadow: 0 0 10px rgba(61, 116, 240, 0.45);
+  border-radius: 3px 3px 0 0;
+}
+
+body.snap-top .grip-bottom i {
+  width: 3px;
+  height: 3px;
+}
+
+body.snap-top .grip-bottom i:nth-child(1) {
+  margin: 0 0 0 -9px;
+}
+body.snap-top .grip-bottom i:nth-child(3) {
+  margin: 0 0 0 9px;
+}
+
+/* ---------- 缩放手柄：比系统无边框的可点区域宽得多，并在边缘给出提示 ---------- */
+.rsz {
+  position: fixed;
+  z-index: 30;
+  -webkit-app-region: no-drag;
+}
+
+.rsz-n,
+.rsz-s {
+  left: 0;
+  right: 0;
+  height: 11px;
+  cursor: ns-resize;
+}
+
+.rsz-n { top: 0; }
+.rsz-s { bottom: 0; }
+
+.rsz-w,
+.rsz-e {
+  top: 0;
+  bottom: 0;
+  width: 11px;
+  cursor: ew-resize;
+}
+
+/* 右侧只留 7px 给缩放，再往里 8px 是滚动条：否则鼠标落到进度条上先命中缩放带，条拖不动 */
+.rsz-w { left: 0; }
+.rsz-e { right: 0; width: 7px; }
+
+.rsz-nw,
+.rsz-ne,
+.rsz-sw,
+.rsz-se {
+  width: 20px;
+  height: 20px;
+}
+
+.rsz-nw { left: 0; top: 0; cursor: nwse-resize; }
+.rsz-ne { right: 0; top: 0; cursor: nesw-resize; }
+.rsz-sw { left: 0; bottom: 0; cursor: nesw-resize; }
+.rsz-se { right: 0; top: 0; cursor: nwse-resize; }
+
+.rsz::before,
+.rsz::after {
+  content: "";
+  position: absolute;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.rsz-n::after,
+.rsz-s::after { left: 0; right: 0; height: 2px; }
+.rsz-n::after { top: 0; }
+.rsz-s::after { bottom: 0; }
+
+.rsz-w::after,
+.rsz-e::after { top: 0; bottom: 0; width: 2px; }
+.rsz-w::after { left: 0; }
+.rsz-e::after { right: 0; }
+
+.rsz-nw::before,
+.rsz-ne::before { left: 0; right: 0; top: 0; height: 2px; }
+.rsz-sw::before,
+.rsz-se::before { left: 0; right: 0; bottom: 0; height: 2px; }
+.rsz-nw::after,
+.rsz-sw::after { top: 0; bottom: 0; left: 0; width: 2px; }
+.rsz-ne::after,
+.rsz-se::after { top: 0; bottom: 0; right: 0; width: 2px; }
+
+.rsz:hover::before,
+.rsz:hover::after,
+.rsz.is-active::before,
+.rsz.is-active::after {
+  opacity: 0.7;
+}
+
+.rsz.is-active {
+  background: rgba(61, 116, 240, 0.07);
+}
+
+body.resizing {
+  outline: 1px solid rgba(61, 116, 240, 0.5);
+  outline-offset: -1px;
+}
+
+/* 收起状态下露出的那条边是拖出手柄，不能同时当缩放热区 */
+body.snap-right .rsz-w,
+body.snap-right .rsz-nw,
+body.snap-right .rsz-sw { display: none; }
+
+body.snap-top .rsz-s,
+body.snap-top .rsz-sw,
+body.snap-top .rsz-se { display: none; }
+
+/* ---------- 响应式分档 ---------- */
+body.w-narrow {
+  --rail: 46px;
+  --pad: 13px;
+  --radius: 18px;
+  font-size: 13px;
+}
+
+body.w-narrow .tb-title {
+  font-size: 19px;
+}
+
+body.w-narrow .tabs {
+  gap: 18px;
+}
+
+body.w-narrow .card {
+  --indent: 27px;
+  padding: 11px 10px 11px 8px;
+}
+
+body.w-narrow .row {
+  gap: 7px;
+}
+
+body.w-narrow .pill {
+  height: 20px;
+  padding: 0 8px 0 7px;
+}
+
+body.w-narrow .meta {
+  gap: 2px 10px;
+}
+
+body.w-narrow .add-btn {
+  width: 34px;
+  height: 34px;
+}
+
+body.w-narrow .detail-grid {
+  grid-template-columns: 1fr;
+}
+
+body.w-wide {
+  --pad: 26px;
+}
+
+body.w-wide .tb-title {
+  font-size: 22px;
+}
+
+body.w-wide .t-title {
+  font-size: 15px;
+}
+
+/* ---- 自绘日历面板 ---- */
+.cal {
+  position: fixed;
+  z-index: 60;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  background-image: var(--sheen);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  box-shadow: var(--edge), var(--shadow-lg);
+  user-select: none;
+}
+
+.cal[hidden] {
+  display: none;
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cal-m {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* 标题在年/月视图里是个可点的按钮（点它进下一级快速选择） */
+button.cal-m {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  padding: 3px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+button.cal-m:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.cal-nav {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cal-nav:hover {
+  background: var(--field);
+  color: var(--text);
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-grid.wd b {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted-2);
+  text-align: center;
+  padding: 4px 0;
+}
+
+.cal-grid .d {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-style: normal;
+  border-radius: 9px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.cal-grid .d:hover {
+  background: var(--field);
+}
+
+/* 月初空位只占格不画字，避免看起来像上个月的日期 */
+.cal-grid .d.blank {
+  visibility: hidden;
+  cursor: default;
+}
+
+.cal-grid .d.is-today {
+  box-shadow: inset 0 0 0 1.4px var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cal-grid .d.is-sel {
+  background: linear-gradient(145deg, var(--grad-a), var(--grad-b));
+  color: var(--on-accent);
+  font-weight: 700;
+  box-shadow: 0 3px 9px rgba(61, 116, 240, 0.35);
+}
+
+/* 年 / 月快速选择：4 列宫格，点完直接回上一级 */
+.cal-grid.mo {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 6px 0 2px;
+}
+
+.cal-grid.mo .d {
+  height: 38px;
+  font-size: 13px;
+}
+
+.cal-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.cal-quick button {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--chip);
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cal-quick button:hover {
+  background: var(--accent-soft);
+  border-color: rgba(61, 116, 240, 0.35);
+  color: var(--accent);
+}
+
+.cal-quick .cal-clear {
+  margin-left: auto;
+  border-color: transparent;
+  background: none;
+  color: var(--muted-2);
+}
+
+/* ---- 自绘时间面板 ----
+   两列各自是有界列表：时刻 00—23、分钟 00—59，滚到顶/底就停，不会循环。 */
+.tp {
+  position: fixed;
+  z-index: 60;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  background-image: var(--sheen);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  box-shadow: var(--edge), var(--shadow-lg);
+  user-select: none;
+}
+
+.tp[hidden] {
+  display: none;
+}
+
+.tp-cur {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  margin-bottom: 9px;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tp-cur b {
+  font-weight: 500;
+  color: var(--muted-2);
+}
+
+.tp-cols {
+  display: flex;
+  gap: 4px;
+}
+
+.tp-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tp-cap {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted-2);
+  text-align: center;
+}
+
+.tp-list {
+  position: relative;
+  height: 168px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* 上下各留 14px 内边距再渐隐：第一条和最后一条被选中时不会被淡出区吃掉 */
+  padding: 14px 0;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+
+.tp-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tp-i {
+  flex: 0 0 auto;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font-size: 12.5px;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 0.14s, color 0.14s;
+}
+
+.tp-i:hover {
+  background: var(--field);
+}
+
+.tp-i:focus {
+  outline: none;
+}
+
+.tp-i.is-on {
+  background: linear-gradient(145deg, var(--grad-a), var(--grad-b));
+  color: var(--on-accent);
+  font-weight: 700;
+  box-shadow: 0 3px 9px rgba(61, 116, 240, 0.35);
+}
+
+body.dark .tp-i.is-on {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* 鼠标点完别留一圈焦点环，键盘导航时才画；描边压在格子内侧，白底上也看得见 */
+.tp-i:focus-visible:not(:hover) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+

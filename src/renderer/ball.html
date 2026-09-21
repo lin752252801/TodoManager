@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>内存悬浮球</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font-family: 'Microsoft YaHei UI', 'Segoe UI', system-ui, sans-serif;
+        user-select: none;
+      }
+
+      .wrap {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        place-items: center;
+      }
+
+      .ball {
+        position: relative;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        /* 液态玻璃：透明窗口下没有可虚化的背景，用高光层 + 冷青透光辉 + 内描边把「玻璃球」画出来
+           背景会被 border-radius 裁成圆形，所以不用 overflow:hidden，投影才不会被切掉 */
+        background:
+          radial-gradient(120% 120% at 30% 14%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.09) 24%, rgba(255, 255, 255, 0) 46%),
+          radial-gradient(78% 44% at 50% 112%, rgba(150, 235, 255, 0.5) 0%, rgba(150, 235, 255, 0) 74%),
+          radial-gradient(140% 120% at 78% 96%, rgba(112, 214, 246, 0.45) 0%, rgba(112, 214, 246, 0) 52%),
+          linear-gradient(158deg, rgba(122, 184, 250, 0.82) 0%, rgba(56, 116, 226, 0.86) 46%, rgba(22, 58, 132, 0.9) 100%);
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.26),
+          inset 0 2px 1px rgba(255, 255, 255, 0.62),
+          inset 0 -1px 2px rgba(255, 255, 255, 0.4),
+          inset 0 -10px 16px rgba(255, 255, 255, 0.16),
+          inset 0 -2px 6px rgba(8, 22, 54, 0.42),
+          0 8px 20px rgba(10, 26, 64, 0.4),
+          0 2px 6px rgba(10, 26, 64, 0.28);
+        color: #fff;
+        transition: transform 0.14s, box-shadow 0.16s;
+      }
+
+      .ball::after {
+        content: '';
+        position: absolute;
+        z-index: 2;
+        left: 13px;
+        top: 10px;
+        width: 17px;
+        height: 10px;
+        border-radius: 50%;
+        background: radial-gradient(closest-side, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0));
+        filter: blur(1.2px);
+        transform: rotate(-18deg);
+        pointer-events: none;
+      }
+
+      .ball:hover {
+        transform: scale(1.06);
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.38),
+          inset 0 2px 1px rgba(255, 255, 255, 0.74),
+          inset 0 -1px 2px rgba(255, 255, 255, 0.5),
+          inset 0 -10px 16px rgba(255, 255, 255, 0.22),
+          inset 0 -2px 6px rgba(8, 22, 54, 0.42),
+          0 12px 26px rgba(10, 26, 64, 0.46),
+          0 2px 6px rgba(10, 26, 64, 0.28);
+      }
+
+      .ball:active {
+        transform: scale(0.96);
+      }
+
+      .pct {
+        position: relative;
+        z-index: 1;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        line-height: 1.1;
+        text-shadow: 0 1px 3px rgba(4, 14, 40, 0.8);
+      }
+
+      /* 副标题只在清理完那 2.6 秒出现，平时留空让百分比稳稳居中 */
+      .cap {
+        position: absolute;
+        z-index: 1;
+        left: 0;
+        right: 0;
+        bottom: 9px;
+        text-align: center;
+        font-size: 9px;
+        opacity: 0.92;
+        letter-spacing: 1px;
+        text-shadow: 0 1px 3px rgba(4, 14, 40, 0.8);
+        pointer-events: none;
+      }
+
+      /* 转圈只在清理时出现，平时完全隐藏 */
+      .ring {
+        position: absolute;
+        z-index: 1;
+        inset: 3px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.22);
+        border-top-color: #ffffff;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+
+      .busy .ring {
+        opacity: 1;
+        animation: spin 0.85s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* 结果直接写在球面上：窗口只有球那么大，弹层会被裁掉 */
+      .pct.done {
+        font-size: 14px;
+      }
+
+      /* 系统开了「减少动画」就不转圈、不缩放，只显示静态圈 */
+      @media (prefers-reduced-motion: reduce) {
+        .ball,
+        .ball:hover,
+        .ball:active {
+          transform: none;
+          transition: box-shadow 0.16s;
+        }
+
+        .busy .ring {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="ball" id="ball" title="点击清理内存，拖动可移动">
+        <span class="ring"></span>
+        <span class="pct" id="pct">--</span>
+        <span class="cap" id="cap"></span>
+      </div>
+    </div>
+    <script src="ball.js"></script>
+  </body>
+</html>

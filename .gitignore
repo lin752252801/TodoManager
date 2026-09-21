@@ -1,0 +1,12 @@
+node_modules/
+dist/
+
+# 程序运行时写在 exe 旁边的用户数据，不进仓库
+data/
+config/
+
+# 调试脚本与临时截图
+_*.js
+_*.png
+_*.json
+*.log

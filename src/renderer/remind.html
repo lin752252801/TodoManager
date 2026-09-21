@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>截止提醒</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --card: #ffffff;
+        --line: #e3e9f3;
+        --tile: #f5f8fd;
+        --tile-line: #edf1f8;
+        --text: #1b2434;
+        --strong: #16202e;
+        --muted: #64748b;
+        --muted-2: #97a3b8;
+        --accent: #3d74f0;
+        --grad-a: #4aa3f5;
+        --grad-b: #2f72e0;
+        --grad-ha: #3f97ef;
+        --grad-hb: #2a66d2;
+        --soon: #d9821f;
+        --soon-bg: #fff4e2;
+        --over: #e05252;
+        --hover: #f5f8fd;
+        --hover-line: #d3dbe8;
+        --scroll: #d3dbe8;
+        --on-accent: #ffffff;
+        --surf-a: #ffffff;
+        --surf-b: #eef5ff;
+        --spec: radial-gradient(120% 90% at 12% 0%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 62%);
+        --edge: inset 0 0 0 1px rgba(255, 255, 255, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+        --shadow: 0 2px 6px rgba(20, 32, 58, 0.06), 0 18px 44px rgba(20, 32, 58, 0.16);
+      }
+
+      body.dark {
+        color-scheme: dark;
+        --card: #1b2547;
+        --line: rgba(255, 255, 255, 0.16);
+        --tile: rgba(255, 255, 255, 0.07);
+        --tile-line: rgba(255, 255, 255, 0.1);
+        --text: #eaf0fb;
+        --strong: #ffffff;
+        --muted: #a3b0c8;
+        --muted-2: #8695af;
+        --accent: #6aa6f7;
+        --grad-a: #4f9ff0;
+        --grad-b: #2a63cf;
+        --grad-ha: #5fabf5;
+        --grad-hb: #3572dd;
+        --soon: #f5a524;
+        --soon-bg: rgba(245, 165, 36, 0.16);
+        --over: #ff8a86;
+        --hover: rgba(255, 255, 255, 0.09);
+        --hover-line: rgba(255, 255, 255, 0.24);
+        --scroll: rgba(255, 255, 255, 0.24);
+        --on-accent: #ffffff;
+        --surf-a: #16294f;
+        --surf-b: #0a1226;
+        --spec: radial-gradient(120% 90% at 12% 0%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 62%);
+        --edge: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+        --shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 22px 54px rgba(0, 0, 0, 0.55);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+        user-select: none;
+      }
+
+      .card {
+        width: 100%;
+        height: 100%;
+        padding: 16px 18px;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 12px;
+        background: var(--spec), linear-gradient(180deg, var(--surf-a) 0%, var(--surf-b) 100%);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: var(--edge), var(--shadow);
+        color: var(--text);
+      }
+
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        -webkit-app-region: drag;
+      }
+
+      .head .ico {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 9px;
+        background: var(--soon-bg);
+        color: var(--soon);
+      }
+
+      .head h1 {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        color: var(--text);
+      }
+
+      .head .x {
+        -webkit-app-region: no-drag;
+        margin-left: auto;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted-2);
+        cursor: pointer;
+      }
+
+      .head .x:hover {
+        background: var(--hover);
+        color: var(--text);
+      }
+
+      .body {
+        display: grid;
+        gap: 8px;
+        align-content: start;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .line {
+        display: flex;
+        gap: 6px;
+        font-size: 13px;
+      }
+
+      .line .k {
+        color: var(--muted);
+        flex: 0 0 auto;
+      }
+
+      .line .v {
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .line.name .v {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--strong);
+      }
+
+      .stat {
+        font-size: 12px;
+        color: var(--muted-2);
+      }
+
+      .list {
+        display: grid;
+        gap: 8px;
+        overflow-y: auto;
+        min-height: 0;
+        margin-right: -6px;
+        padding-right: 6px;
+      }
+
+      .list::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .list::-webkit-scrollbar-thumb {
+        background: var(--scroll);
+        border-radius: 3px;
+      }
+
+      .row {
+        display: grid;
+        gap: 3px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: var(--tile);
+        border: 1px solid var(--tile-line);
+      }
+
+      .row .n {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--strong);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .row .m {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--muted-2);
+      }
+
+      .row .m .s {
+        flex: 0 0 auto;
+        color: var(--soon);
+      }
+
+      .row.od .m .s {
+        color: var(--over);
+      }
+
+      .foot {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .more {
+        flex: 1 1 auto;
+        text-align: center;
+        font-size: 11px;
+        color: var(--muted-2);
+      }
+
+      /* 只有一条提醒时「还有 N 项」是空的，靠它撑开会把「稍后」甩到中间，所以自己顶到最右 */
+      .later {
+        margin-left: auto;
+      }
+
+      .btn {
+        min-width: 74px;
+        padding: 8px 16px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-family: inherit;
+        cursor: pointer;
+      }
+
+      .later {
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--muted);
+      }
+
+      .later:hover {
+        border-color: var(--hover-line);
+        background: var(--hover);
+        color: var(--text);
+      }
+
+      .ok {
+        border: 0;
+        background: linear-gradient(180deg, var(--grad-a), var(--grad-b));
+        color: var(--on-accent);
+        box-shadow: 0 4px 12px rgba(61, 116, 240, 0.28);
+      }
+
+      .ok:hover {
+        background: linear-gradient(180deg, var(--grad-ha), var(--grad-hb));
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="head">
+        <span class="ico">
+          <svg viewBox="0 0 20 20" width="18" height="18">
+            <path d="M10 2.4 18.2 17H1.8L10 2.4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+            <path d="M10 7.6v3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            <circle cx="10" cy="13.6" r="0.95" fill="currentColor" />
+          </svg>
+        </span>
+        <h1 id="h">待办任务已截止</h1>
+        <button class="x" id="x" title="稍后">
+          <svg viewBox="0 0 12 12" width="12" height="12">
+            <path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div class="body" id="body">
+        <div class="line"><span class="k">截止时间：</span><span class="v" id="due"></span><span class="k" id="note"></span></div>
+        <div class="line name"><span class="k">任务名称：</span><span class="v" id="name"></span></div>
+      </div>
+      <div class="foot">
+        <button class="btn ok" id="ok">确定</button>
+        <span class="more" id="more"></span>
+        <button class="btn later" id="later">稍后</button>
+      </div>
+    </div>
+    <script src="remind.js"></script>
+  </body>
+</html>
