@@ -1125,6 +1125,18 @@ body.snap-right .grip-left {
   border-radius: 0 3px 3px 0;
 }
 
+/* 左吸附时露的是窗口右缘，把手和渐变方向都跟右吸附镜像 */
+body.snap-left .grip-right {
+  display: block;
+  right: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 6px;
+  background: linear-gradient(270deg, var(--grip-a), var(--grip-b));
+  box-shadow: 0 0 10px rgba(61, 116, 240, 0.45);
+  border-radius: 3px 0 0 3px;
+}
+
 body.snap-top .grip-bottom {
   display: block;
   bottom: 0;
@@ -1243,6 +1255,10 @@ body.snap-right .rsz-sw { display: none; }
 body.snap-top .rsz-s,
 body.snap-top .rsz-sw,
 body.snap-top .rsz-se { display: none; }
+
+body.snap-left .rsz-e,
+body.snap-left .rsz-ne,
+body.snap-left .rsz-se { display: none; }
 
 /* ---------- 响应式分档 ---------- */
 body.w-narrow {

@@ -760,8 +760,10 @@ function showView(view) {
 function applySnap(st) {
   const hidden = st.mode === 'hidden';
   document.body.classList.toggle('snap-right', hidden && st.side === 'right');
+  document.body.classList.toggle('snap-left', hidden && st.side === 'left');
   document.body.classList.toggle('snap-top', hidden && st.side === 'top');
-  const label = st.mode === 'free' ? '未吸附' : st.side === 'right' ? '已吸附：屏幕右侧' : '已吸附：屏幕顶部';
+  const sideName = { left: '屏幕左侧', right: '屏幕右侧', top: '屏幕顶部' };
+  const label = st.mode === 'free' ? '未吸附' : '已吸附：' + (sideName[st.side] || '屏幕边缘');
   const el = $('#set-snap');
   if (el) el.textContent = label;
 }

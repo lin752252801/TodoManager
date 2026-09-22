@@ -20,7 +20,7 @@ class SnapController {
   constructor(win) {
     this.win = win;
     this.mode = 'free'; // free | hidden | expanded
-    this.side = null; // right | top
+    this.side = null; // right | left | top
     this.normal = null;
     this.animTimer = null;
     this.animating = false;
@@ -121,6 +121,7 @@ class SnapController {
     const wa = this.workArea();
     const n = this.clamp(b, wa);
     if (this.side === 'right') n.x = wa.x + wa.width - n.width;
+    else if (this.side === 'left') n.x = wa.x;
     else n.y = wa.y;
     this.normal = n;
     this.pending = null;
@@ -207,9 +208,9 @@ class SnapController {
   }
 
   hiddenBounds(normal, side, wa) {
-    return side === 'right'
-      ? { ...normal, x: wa.x + wa.width - SLIVER }
-      : { ...normal, y: wa.y - (normal.height - SLIVER) };
+    if (side === 'left') return { ...normal, x: wa.x + SLIVER - normal.width };
+    if (side === 'right') return { ...normal, x: wa.x + wa.width - SLIVER };
+    return { ...normal, y: wa.y - (normal.height - SLIVER) };
   }
 
   state() {
@@ -237,7 +238,8 @@ class SnapController {
     const wa = this.workArea();
     const normal = this.clamp(this.win.getBounds(), wa);
     // 展开位贴齐屏幕边缘，否则停在边缘的鼠标不在窗口内，会立刻又被收回
-    if (side === 'right') normal.x = wa.x + wa.width - normal.width;
+    if (side === 'left') normal.x = wa.x;
+    else if (side === 'right') normal.x = wa.x + wa.width - normal.width;
     else normal.y = wa.y;
     this.side = side;
     this.normal = normal;
@@ -362,11 +364,18 @@ class SnapController {
     const t = this.mode === 'hidden' ? this.hiddenBounds(this.normal, this.side, wa) : this.normal;
 
     if (this.mode === 'hidden') {
-      const inZone =
-        this.side === 'right'
-          ? cursor.x >= wa.x + wa.width - TRIGGER && cursor.y >= t.y && cursor.y <= t.y + t.height
-          : cursor.y <= wa.y + TRIGGER && cursor.x >= t.x && cursor.x <= t.x + t.width;
-      if (!inZone) {
+      // 贴着吸附边、且落在窗口那一维的范围内才算「进入触发区」
+      const onBand =
+        this.side === 'top'
+          ? cursor.x >= t.x && cursor.x <= t.x + t.width
+          : cursor.y >= t.y && cursor.y <= t.y + t.height;
+      const nearEdge =
+        this.side === 'left'
+          ? cursor.x <= wa.x + TRIGGER
+          : this.side === 'right'
+            ? cursor.x >= wa.x + wa.width - TRIGGER
+            : cursor.y <= wa.y + TRIGGER;
+      if (!(onBand && nearEdge)) {
         this.pending = null;
         return;
       }
@@ -389,12 +398,20 @@ class SnapController {
 
   evaluateSnap(b, wa) {
     const rightGap = wa.x + wa.width - (b.x + b.width);
+    const leftGap = b.x - wa.x;
     const topGap = b.y - wa.y;
+    // 底部不吸附：那一条留给任务栏
+    const nearLeft = leftGap <= SNAP_DIST && b.x + b.width > wa.x + SLIVER;
     const nearRight = rightGap <= SNAP_DIST && b.x < wa.x + wa.width - SLIVER;
     const nearTop = topGap <= SNAP_DIST && topGap >= -60;
-    if (!nearRight && !nearTop) return false;
-    const side = nearRight && nearTop ? (Math.abs(rightGap) <= Math.abs(topGap) ? 'right' : 'top') : nearRight ? 'right' : 'top';
-    this.snap(side);
+    if (!nearLeft && !nearRight && !nearTop) return false;
+    const cands = [];
+    if (nearLeft) cands.push(['left', leftGap]);
+    if (nearRight) cands.push(['right', rightGap]);
+    if (nearTop) cands.push(['top', topGap]);
+    // 同时够到两条边时（比如左上角）贴哪条边，取离得更近的那条
+    cands.sort((m, n) => Math.abs(m[1]) - Math.abs(n[1]));
+    this.snap(cands[0][0]);
     return true;
   }
 }
