@@ -2,7 +2,9 @@ const { screen } = require('electron');
 const store = require('./store');
 
 const SLIVER = 6; // 吸附后露出的像素
-const TRIGGER = 24; // 鼠标距屏幕边缘多少像素算进入触发区
+// 触发区就是露出的那一条（6px），不留隐形扩展带：
+// 之前是 24px，鼠标离凸出条还有十几像素就滑出来，误触太严重
+const TRIGGER = SLIVER;
 const SNAP_DIST = 30; // 拖动结束时距边缘多少像素内触发吸附
 const ANIM_MS = 160;
 const POLL_MS = 24;
