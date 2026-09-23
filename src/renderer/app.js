@@ -3,6 +3,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const DAY = 86400000;
+const HOUR = 3600000;
 const PRIO = { high: 0, mid: 1, low: 2 };
 const PRIO_LABEL = { high: '高', mid: '中', low: '低' };
 const TITLE_MAX = 20;
@@ -80,26 +81,30 @@ function dueFrom(dateStr, timeStr) {
   return { due: new Date(y, m - 1, d, hh, mm, 0, 0).getTime(), allDay: false };
 }
 
-// 截止时间的三态：普通 / 临近(≤2天) / 逾期
+// 倒计时文案：不足 1 小时到 8 天之间才值得占一个胶囊的位置
+function remainText(ms, now) {
+  const left = ms - now;
+  if (left < 0) return `逾期 ${Math.max(1, Math.ceil(-left / DAY))} 天`;
+  if (left < HOUR) return '不足 1 小时';
+  if (left < 2 * DAY) return `剩 ${Math.ceil(left / HOUR)} 小时`;
+  if (left < 8 * DAY) return `剩 ${Math.ceil(left / DAY)} 天`;
+  return '';
+}
+
+// 截止时间的三态：普通 / 临近(≤2天) / 逾期。
+// 逾期那档只写到期的时刻：「逾期」几个字右边胶囊已经写了，重复一遍会挤掉时间。
 function dueInfo(t) {
   const ms = t.due;
   const now = Date.now();
-  const narrow = state.tier === 'narrow';
   const d = new Date(ms);
   const hm = t.dueAllDay ? '' : ` ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  if (ms < now) {
-    const over = Math.max(1, Math.ceil((now - ms) / DAY));
-    return { cls: 'due-over', text: `已逾期：${over}天` };
-  }
-  const days = Math.round((startOfDay(ms) - startOfDay(now)) / DAY);
+  const md = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const sameYear = d.getFullYear() === new Date(now).getFullYear();
-  const dateStr = narrow
-    ? `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-    : sameYear
-      ? `${pad(d.getMonth() + 1)}-${pad(d.getDate())}${hm}`
-      : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const rel = days === 0 ? `今天${hm}` : days === 1 ? `明天${hm}` : days === 2 ? `后天${hm}` : dateStr;
-  return { cls: days <= 2 ? 'due-soon' : '', text: `截止 ${rel}` };
+  const dateStr = state.tier === 'narrow' || sameYear ? md : `${d.getFullYear()}-${md}`;
+  if (ms < now) return { cls: 'over', text: `${dateStr}${hm}`, chip: remainText(ms, now) };
+  const days = Math.round((startOfDay(ms) - startOfDay(now)) / DAY);
+  const rel = days <= 2 ? ['今天', '明天', '后天'][days] + hm : `${dateStr}${hm}`;
+  return { cls: days <= 2 ? 'soon' : 'ok', text: `截止 ${rel}`, chip: days <= 7 ? remainText(ms, now) : '' };
 }
 
 function visibleTasks() {
@@ -120,6 +125,8 @@ const TICK = '<svg viewBox="0 0 16 16" width="12" height="12"><path d="m3.6 8.3 
 const CHEV = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="m6 3.5 5 4.5-5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 const CAL =
   '<svg viewBox="0 0 16 16" width="13" height="13"><rect x="2.4" y="3.4" width="11.2" height="10.2" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2.4 6.4h11.2M5.4 1.9v3M10.6 1.9v3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+const PEN =
+  '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg>';
 
 // 预览与标题重复时只保留差集，避免同一句话显示两遍
 function previewText(t) {
@@ -137,17 +144,23 @@ function cardHtml(t) {
   const preview = previewText(t);
   const due = t.due ? dueInfo(t) : null;
   return `
-  <article class="card p-${t.priority} ${open ? 'is-open' : ''} ${t.done ? 'is-done' : ''}" data-id="${t.id}" data-act="open">
-    <div class="row">
-      <button class="check" data-act="done" title="${t.done ? '移回待办' : '标记完成'}">${TICK}</button>
-      <div class="t-title">${esc(t.title)}</div>
-      <span class="pill" title="点击展开后可修改优先级"><i class="pdot"></i>${PRIO_LABEL[t.priority]}</span>
+  <article class="card glass p-${t.priority} ${open ? 'is-open' : ''} ${t.done ? 'is-done' : ''}" data-id="${t.id}" data-act="open">
+    <span class="spine"></span>
+    <div class="head">
+      <button class="ring" data-act="done" title="${t.done ? '移回待办' : '标记完成'}">${TICK}</button>
+      <div class="m">
+        <div class="row1">
+          <div class="n1">${esc(t.title)}</div>
+          <span class="chip prio" title="点击展开后可修改优先级">${PRIO_LABEL[t.priority]}</span>
+        </div>
+        ${preview ? `<div class="pv">${esc(preview)}</div>` : ''}
+        <div class="meta">
+          <span class="tm crt">${CAL}${esc(fmtCreated(t.createdAt))}</span>
+          ${due ? `<span class="tm d-${due.cls}">${CLOCK}${esc(due.text)}</span>` : ''}
+          ${due && due.chip ? `<span class="chip ${due.cls === 'over' ? 'over' : 'soon'}">${esc(due.chip)}</span>` : ''}
+        </div>
+      </div>
       <span class="chev">${CHEV}</span>
-    </div>
-    ${preview ? `<div class="pline">${esc(preview)}</div>` : ''}
-    <div class="meta">
-      <span class="created">${CAL}${esc(fmtCreated(t.createdAt))}</span>
-      ${due ? `<span class="due ${due.cls}">${CLOCK}${esc(due.text)}</span>` : ''}
     </div>
     ${open ? detailHtml(t) : ''}
   </article>`;
@@ -157,39 +170,37 @@ function detailHtml(t) {
   const d = draftOf(t) || t;
   return `
   <div class="detail" data-act="noop">
-    <label class="field"><span>标题（建议 ${TITLE_MAX} 字以内）</span><input type="text" maxlength="60" data-f="title" value="${esc(d.title)}" placeholder="一句话说明" /></label>
-    <label class="field"><span>详细内容</span><textarea data-f="detail" placeholder="补充说明…">${esc(d.detail == null ? '' : d.detail)}</textarea></label>
-    <div class="detail-grid">
-      <div class="field">
+    <label class="fld"><span>标题（建议 ${TITLE_MAX} 字以内）</span><input type="text" maxlength="60" data-f="title" value="${esc(d.title)}" placeholder="一句话说明" /></label>
+    <label class="fld"><span>详细内容</span><textarea data-f="detail" placeholder="补充说明…">${esc(d.detail == null ? '' : d.detail)}</textarea></label>
+    <div class="row2">
+      <div class="fld">
         <span>截止日期（时间可留空）</span>
-        <div class="due-row">
-          <button type="button" class="date-btn" data-act="pick-date" title="选择截止日期">
-            <span class="dv${d.due ? '' : ' ph'}">${d.due ? toDateInput(d.due) : '选择日期'}</span>${CAL}
-          </button>
-          <button type="button" class="time-btn" data-act="pick-time" title="选择截止时间" aria-haspopup="dialog" aria-expanded="false"${d.due ? '' : ' disabled'}>
-            <span class="tv${toTimeInput(d.due, d.dueAllDay) ? '' : ' ph'}">${toTimeInput(d.due, d.dueAllDay) || '选择时间'}</span>${CLOCK}
-          </button>
-        </div>
+        <button type="button" class="date-btn" data-act="pick-date" title="选择截止日期">
+          <span class="dv${d.due ? '' : ' ph'}">${d.due ? toDateInput(d.due) : '选择日期'}</span>${CAL}
+        </button>
       </div>
-      <div class="field"><span>优先级</span>
-        <div class="acts">
-          ${['high', 'mid', 'low']
-            .map((p) => `<button class="btn ${d.priority === p ? 'is-on' : ''}" data-act="set-prio" data-p="${p}">${PRIO_LABEL[p]}</button>`)
-            .join('')}
-        </div>
+      <div class="fld">
+        <span>时间</span>
+        <button type="button" class="time-btn" data-act="pick-time" title="选择截止时间" aria-haspopup="dialog" aria-expanded="false"${d.due ? '' : ' disabled'}>
+          <span class="tv${toTimeInput(d.due, d.dueAllDay) ? '' : ' ph'}">${toTimeInput(d.due, d.dueAllDay) || '选择时间'}</span>${CLOCK}
+        </button>
       </div>
     </div>
-    <div class="acts">
-      <span class="stamp">创建时间：${fmtStamp(t.createdAt)}</span>
-      ${t.done ? `<span class="stamp">完成时间：${fmtStamp(t.completedAt)}</span>` : ''}
+    <div class="fld"><span>优先级</span>
+      <div class="seg">
+        ${['high', 'mid', 'low']
+          .map((p) => `<button class="btn ${d.priority === p ? 'is-on' : ''}" data-act="set-prio" data-p="${p}">${PRIO_LABEL[p]}</button>`)
+          .join('')}
+      </div>
     </div>
-    <div class="acts confirm">
+    <div class="dstamp">
+      ${CAL}<span>创建时间 ${fmtStamp(t.createdAt)}</span>${t.done ? `<span>· 完成时间 ${fmtStamp(t.completedAt)}</span>` : ''}
+    </div>
+    <div class="dfoot">
+      <button class="btn del" data-act="del">删除</button>
       <span class="dirty-tip">有未确认的修改</span>
-      <span class="confirm-btns">
-        <button class="btn btn-primary" data-act="save" disabled>确定</button>
-        <button class="btn btn-ghost" data-act="cancel">取消</button>
-        <button class="btn btn-danger" data-act="del">删除</button>
-      </span>
+      <button class="btn" data-act="cancel">取消</button>
+      <button class="btn pri" data-act="save" disabled>保存</button>
     </div>
   </div>`;
 }
@@ -667,13 +678,127 @@ function growAll() {
   $$('.detail textarea', listEl).forEach((el) => autoGrow(el, 260));
 }
 
+// ---- 焦点卡：列表顶部那张「最紧急」 ----
+// 只挑最近一条要到期（或已逾期）的，7 天以外的不值得占这一屏最大的位置。
+function focusTask(items) {
+  if (state.tab !== 'active' || state.expandedId) return null;
+  const now = Date.now();
+  let best = null;
+  items.forEach((t) => {
+    if (t.due == null || t.due - now >= 7 * DAY) return;
+    if (!best || t.due < best.due) best = t;
+  });
+  return best;
+}
+
+function focusHtml(t) {
+  const now = Date.now();
+  const left = t.due - now;
+  const due = dueInfo(t);
+  // 进度条画的是「从创建到截止走完了多少」，没有创建时间就按一小时窗口兜底，别除零
+  const from = t.createdAt && t.createdAt < t.due ? t.createdAt : t.due - HOUR;
+  const pct = Math.max(3, Math.min(100, Math.round(((now - from) / (t.due - from)) * 100)));
+  const preview = previewText(t);
+  return `
+  <div class="card focus glass p-${t.priority}" data-id="${t.id}" data-act="open">
+    <div class="f-k${left > 2 * DAY ? ' calm' : ''}">${CLOCK}最紧急 · ${esc(remainText(t.due, now))}</div>
+    <div class="f-h">${esc(t.title)}</div>
+    ${preview ? `<div class="f-d">${esc(preview)}</div>` : ''}
+    <div class="f-cd">
+      <span class="c">${CAL}${esc(fmtCreated(t.createdAt))} 创建</span>
+      <span class="bar${left > 2 * DAY ? ' safe' : ''}"><i style="width:${pct}%"></i></span>
+      <span class="t${left < 0 ? ' over' : ''}">${esc(due.text.replace(/^截止 /, ''))} 到期</span>
+    </div>
+    <div class="f-acts">
+      <button class="btn-teal" data-act="done">标记完成</button>
+      <button class="btn-o" data-act="open" title="展开编辑">${PEN}</button>
+    </div>
+  </div>`;
+}
+
+// ---- 时间轴分组 ----
+// 规则按顺序命中即止，所以「已逾期」必须排在「今天」前面：
+// 昨天下午到期的一条按自然日差算是 0 天，会被误判成今天要做的。
+function dayGap(ms, now) {
+  return Math.round((startOfDay(ms) - startOfDay(now)) / DAY);
+}
+
+const GROUPS_ACTIVE = [
+  ['已逾期', 'var(--danger)', (t, now) => t.due != null && t.due < now],
+  ['今天', 'var(--blue)', (t, now) => t.due != null && dayGap(t.due, now) === 0],
+  ['明天', 'var(--blue)', (t, now) => t.due != null && dayGap(t.due, now) === 1],
+  ['本周稍后', 'var(--violet)', (t, now) => t.due != null && dayGap(t.due, now) <= 7],
+  ['30 天内', 'var(--teal)', (t, now) => t.due != null && dayGap(t.due, now) <= 30],
+  ['更晚', 'var(--txt4)', (t) => t.due != null],
+  ['未设截止', 'var(--txt4)', () => true]
+];
+
+const GROUPS_DONE = [
+  ['今天完成', 'var(--teal)', (t, now) => dayGap(t.completedAt || t.createdAt, now) === 0],
+  ['昨天完成', 'var(--teal)', (t, now) => dayGap(t.completedAt || t.createdAt, now) === 1],
+  ['本周更早', 'var(--blue)', (t, now) => dayGap(t.completedAt || t.createdAt, now) <= 6],
+  ['更早', 'var(--txt4)', () => true]
+];
+
+function groupsHtml(list) {
+  const now = Date.now();
+  const rules = state.tab === 'done' ? GROUPS_DONE : GROUPS_ACTIVE;
+  const out = [];
+  let rest = list;
+  rules.forEach(([name, color, hit]) => {
+    if (!rest.length) return;
+    const bucket = [];
+    const keep = [];
+    rest.forEach((t) => (hit(t, now) ? bucket : keep).push(t));
+    rest = keep;
+    if (!bucket.length) return;
+    out.push(
+      `<div class="grp"><span class="dot" style="background:${color};box-shadow:0 0 8px ${color}"></span><span class="name">${name}</span><span class="cnt">${bucket.length}</span><span class="line"></span></div>`
+    );
+    out.push(bucket.map(cardHtml).join(''));
+  });
+  return out.join('');
+}
+
+const WEEK_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+function updateHeader() {
+  const now = new Date();
+  $('#hdr-date').innerHTML = `${now.getMonth() + 1} 月 ${now.getDate()} 日<em>${WEEK_CN[now.getDay()]}</em>`;
+  const act = state.tasks.filter((t) => !t.done);
+  const ms = Date.now();
+  const over = act.filter((t) => t.due != null && t.due < ms).length;
+  const high = act.filter((t) => t.priority === 'high').length;
+  const bits = [`${act.length} 项待办`];
+  if (over) bits.push(`<b>${over} 项已逾期</b>`);
+  if (high) bits.push(`高优先级 ${high} 项`);
+  $('#hdr-sub').innerHTML = bits.join(' · ');
+  const done = state.tasks.length - act.length;
+  $('#hdr-fill').style.width = (state.tasks.length ? Math.round((done / state.tasks.length) * 100) : 0) + '%';
+  $('#hdr-num').textContent = `已完成 ${done} / ${state.tasks.length}`;
+}
+
+function syncDock() {
+  const act = state.tasks.filter((t) => !t.done).length;
+  const done = state.tasks.length - act;
+  $('#dock-active').textContent = `待办 ${act}`;
+  $('#dock-done').textContent = `已完成 ${done}`;
+  $$('.d-i').forEach((b) => {
+    const on =
+      b.dataset.view === 'settings' ? state.view === 'settings' : state.view === 'tasks' && b.dataset.tab === state.tab;
+    b.classList.toggle('is-on', on);
+  });
+}
+
 function render() {
   // 卡片整段重绘，锚点已经没了，面板留着会飘在原地
   closeCal();
   closeTp();
   const scroll = listEl.scrollTop;
   const items = visibleTasks();
-  listEl.innerHTML = items.map(cardHtml).join('');
+  const fc = focusTask(items);
+  const rest = fc ? items.filter((t) => t !== fc) : items;
+  listEl.innerHTML = (fc ? focusHtml(fc) : '') + groupsHtml(rest);
   const none = items.length === 0;
   emptyEl.hidden = !none;
   if (none) emptyEl.textContent = state.tab === 'done' ? '还没有已完成的任务' : '暂无待办，先添加一条';
@@ -682,6 +807,8 @@ function render() {
     const t = find(card.dataset.id);
     if (t) syncDirty(card, t);
   });
+  updateHeader();
+  syncDock();
   listEl.scrollTop = scroll;
 }
 
@@ -741,7 +868,6 @@ function addTask() {
 
 function setTab(tab) {
   state.tab = tab;
-  $$('.tab').forEach((b) => b.classList.toggle('is-active', b.dataset.tab === tab));
   patchSetting({ tab });
   render();
 }
@@ -750,9 +876,10 @@ function showView(view) {
   state.view = view;
   closeCal();
   closeTp();
-  $$('.rail-btn').forEach((b) => b.classList.toggle('is-active', b.dataset.view === view));
+  document.body.classList.toggle('showing-settings', view === 'settings');
   $('#view-tasks').hidden = view !== 'tasks';
   $('#view-settings').hidden = view !== 'settings';
+  syncDock();
   // 隐藏期间改过窗口尺寸的话，输入框高度是按旧宽度算的，回来重算一次
   if (view === 'tasks') growAll();
 }
@@ -855,9 +982,23 @@ addInput.addEventListener('keydown', (e) => {
 
 $('#add-btn').addEventListener('click', addTask);
 $('#btn-close').addEventListener('click', () => bridge.hide());
+$('#btn-close-2').addEventListener('click', () => bridge.hide());
 
-$$('.tab').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
-$$('.rail-btn').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
+$$('.d-i').forEach((b) =>
+  b.addEventListener('click', () => {
+    if (b.dataset.view === 'settings') return showView('settings');
+    showView('tasks');
+    setTab(b.dataset.tab);
+  })
+);
+
+// 手风琴：整行都能点，但行里的开关 / 主题按钮 / 弹窗预览要留给控件自己
+$$('.acc-h').forEach((h) =>
+  h.addEventListener('click', (e) => {
+    if (e.target.closest('button, input, .seg')) return;
+    h.parentElement.classList.toggle('is-open');
+  })
+);
 
 // 勾选状态以主进程回读到的结果为准：写不进启动项时把勾退回未开启，别让用户看到假的「已开启」
 $('#set-autostart').addEventListener('change', async (e) => {
@@ -871,10 +1012,20 @@ $('#set-autostart').addEventListener('change', async (e) => {
 $('#set-test-remind').addEventListener('click', () => bridge.testRemind());
 
 // ---------- 主题 ----------
+// 分组标题下那行摘要：收起来也要看得见当前主题和透明度
+function paintAppearanceSum() {
+  const el = $('#set-appearance-sum');
+  if (el) {
+    el.textContent =
+      (document.body.classList.contains('dark') ? '深色' : '浅色') + ' · 透明度 ' + $('#set-opacity').textContent;
+  }
+}
+
 function applyTheme(theme) {
   const dark = theme === 'dark';
   if (dark !== document.body.classList.contains('dark')) document.body.classList.toggle('dark', dark);
   $$('#set-theme .btn').forEach((b) => b.classList.toggle('is-on', (b.dataset.theme === 'dark') === dark));
+  paintAppearanceSum();
 }
 
 $$('#set-theme .btn').forEach((b) =>
@@ -897,6 +1048,7 @@ const opacityValue = $('#set-opacity');
 function paintSlider(pct) {
   opacityRange.style.setProperty('--fill', pct + '%');
   opacityValue.textContent = pct + '%';
+  paintAppearanceSum();
 }
 
 opacityRange.addEventListener('input', () => {
@@ -1061,7 +1213,6 @@ async function boot() {
   const s = await bridge.getSettings();
   state.tab = s.tab === 'done' ? 'done' : 'active';
   state.expandedId = s.expandedId || null;
-  $$('.tab').forEach((b) => b.classList.toggle('is-active', b.dataset.tab === state.tab));
   $('#set-autostart').checked = !!s.autoStart;
   $('#set-ball').checked = !!s.ball;
   applyTheme(s.theme === 'dark' ? 'dark' : 'light');
@@ -1082,6 +1233,11 @@ async function boot() {
   const opened = state.expandedId && find(state.expandedId);
   if (opened) beginDraft(opened);
   render();
+  // 「剩 4 小时」「今天到期」这些都是按当下算出来的，放着不动会越看越旧。
+  // 编辑中 / 面板开着时不重绘，否则输入焦点和锚点都没了。
+  setInterval(() => {
+    if (!state.expandedId && !calOpen() && !tpOpen()) render();
+  }, 60000);
 }
 
 boot();

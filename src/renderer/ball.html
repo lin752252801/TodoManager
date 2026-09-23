@@ -35,21 +35,23 @@
         display: grid;
         place-items: center;
         cursor: pointer;
-        /* 液态玻璃：透明窗口下没有可虚化的背景，用高光层 + 冷青透光辉 + 内描边把「玻璃球」画出来
-           背景会被 border-radius 裁成圆形，所以不用 overflow:hidden，投影才不会被切掉 */
+        /* 液态玻璃：透明窗口下没有可虚化的背景，用高光层 + 青绿透光辉 + 内描边把「玻璃球」画出来
+           配色跟主界面同一套（青绿 → 靛蓝 → 深蓝紫）
+           注意 background 的层序是「先写的盖在上面」：底色渐变必须放第一个，否则会把透光辉整个盖掉 */
         background:
-          radial-gradient(120% 120% at 30% 14%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.09) 24%, rgba(255, 255, 255, 0) 46%),
-          radial-gradient(78% 44% at 50% 112%, rgba(150, 235, 255, 0.5) 0%, rgba(150, 235, 255, 0) 74%),
-          radial-gradient(140% 120% at 78% 96%, rgba(112, 214, 246, 0.45) 0%, rgba(112, 214, 246, 0) 52%),
-          linear-gradient(158deg, rgba(122, 184, 250, 0.82) 0%, rgba(56, 116, 226, 0.86) 46%, rgba(22, 58, 132, 0.9) 100%);
+          linear-gradient(152deg, rgba(35, 198, 165, 0.95) 0%, rgba(38, 150, 196, 0.94) 38%, rgba(43, 78, 176, 0.95) 74%, rgba(26, 38, 104, 0.96) 100%),
+          radial-gradient(78% 44% at 50% 112%, rgba(143, 240, 218, 0.62) 0%, rgba(143, 240, 218, 0) 74%),
+          radial-gradient(140% 120% at 78% 98%, rgba(46, 200, 166, 0.5) 0%, rgba(46, 200, 166, 0) 54%),
+          radial-gradient(120% 110% at 98% 70%, rgba(109, 92, 235, 0.44) 0%, rgba(109, 92, 235, 0) 56%),
+          radial-gradient(120% 120% at 30% 14%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 46%);
+        /* 窗口只有 82px（球 56 + 四周 13），外投影的 20px 模糊会被窗口边裁成一圈正方形灰边，
+           所以只留内描边和内高光，立体感靠球体自身的渐变撑 */
         box-shadow:
           inset 0 0 0 1px rgba(255, 255, 255, 0.26),
           inset 0 2px 1px rgba(255, 255, 255, 0.62),
           inset 0 -1px 2px rgba(255, 255, 255, 0.4),
           inset 0 -10px 16px rgba(255, 255, 255, 0.16),
-          inset 0 -2px 6px rgba(8, 22, 54, 0.42),
-          0 8px 20px rgba(10, 26, 64, 0.4),
-          0 2px 6px rgba(10, 26, 64, 0.28);
+          inset 0 -2px 6px rgba(8, 22, 54, 0.42);
         color: #fff;
         transition: transform 0.14s, box-shadow 0.16s;
       }
@@ -69,16 +71,14 @@
         pointer-events: none;
       }
 
+      /* 窗口和球体等大，放大会把圆边裁平，所以悬停只加光和提亮 */
       .ball:hover {
-        transform: scale(1.06);
         box-shadow:
           inset 0 0 0 1px rgba(255, 255, 255, 0.38),
           inset 0 2px 1px rgba(255, 255, 255, 0.74),
           inset 0 -1px 2px rgba(255, 255, 255, 0.5),
           inset 0 -10px 16px rgba(255, 255, 255, 0.22),
-          inset 0 -2px 6px rgba(8, 22, 54, 0.42),
-          0 12px 26px rgba(10, 26, 64, 0.46),
-          0 2px 6px rgba(10, 26, 64, 0.28);
+          inset 0 -2px 6px rgba(8, 22, 54, 0.42);
       }
 
       .ball:active {

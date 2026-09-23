@@ -29,6 +29,7 @@ if (p && p.list) {
   body.innerHTML = `<div class="stat">${esc(stat)}</div><div class="list">${rows}</div>`;
 } else if (p) {
   document.getElementById('h').textContent = p.overdue ? '待办任务已截止' : '待办任务即将截止';
+  if (p.overdue) document.getElementById('card').classList.add('is-over');
   setText('due', p.dueText);
   setText('note', p.note ? `（${p.note}）` : '');
   setText('name', p.title);

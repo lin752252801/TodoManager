@@ -4,14 +4,33 @@ const os = require('os');
 const { execFile } = require('child_process');
 const store = require('./store');
 
-// 球体 56px，四周留出玻璃投影的扩散空间
+// 窗口必须和球体一样大：透明像素也属于这个置顶窗口，会吞掉鼠标事件，
+// 留白一多，球旁边那圈看着是空的，却挡住桌面右键
 const BALL = 56;
-const PAD = 13;
-const SIZE = BALL + PAD * 2;
+const SIZE = BALL;
 
 let win = null;
 let poll = null;
+let hitTimer = null;
 let saveTimer = null;
+let interactive = false;
+
+// Chromium 给透明窗口额外加了 8px 非客户区（内容 56，系统矩形 64），
+// 这圈像素看不见却照样吃鼠标事件，球下方/右方就成了挡桌面右键的死区。
+// 渲染层又收不到 forward 转发的 mousemove，所以直接在主进程比对光标和圆心。
+const HIT_R = 27.5;
+
+function trackHit() {
+  if (!win || win.isDestroyed()) return;
+  const b = win.getBounds();
+  const p = screen.getCursorScreenPoint();
+  const dx = p.x - (b.x + SIZE / 2);
+  const dy = p.y - (b.y + SIZE / 2);
+  const on = dx * dx + dy * dy <= HIT_R * HIT_R;
+  if (on === interactive) return;
+  interactive = on;
+  win.setIgnoreMouseEvents(!on, { forward: true });
+}
 
 const TRIM_PS = [
   "$ErrorActionPreference='SilentlyContinue'",
@@ -96,7 +115,10 @@ function create() {
       devTools: !app.isPackaged
     }
   });
+  // 默认整窗穿透，trackHit 发现光标进圆了再收回
   win.setAlwaysOnTop(true, 'screen-saver');
+  win.setIgnoreMouseEvents(true, { forward: true });
+  interactive = false;
   win.loadFile(path.join(__dirname, '..', 'renderer', 'ball.html'));
   win.once('ready-to-show', () => {
     if (win && !win.isDestroyed()) win.showInactive();
@@ -107,11 +129,15 @@ function create() {
   });
   clearInterval(poll);
   poll = setInterval(pushUsage, 2000);
+  clearInterval(hitTimer);
+  hitTimer = setInterval(trackHit, 60);
 }
 
 function destroy() {
   clearInterval(poll);
   poll = null;
+  clearInterval(hitTimer);
+  hitTimer = null;
   if (win && !win.isDestroyed()) win.destroy();
   win = null;
 }
