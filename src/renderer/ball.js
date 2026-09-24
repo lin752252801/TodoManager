@@ -58,54 +58,31 @@ async function clean() {
   }
 }
 
-// 拖动只报「相对按下点移了多少像素」，主进程把这个位移加到按下当刻的窗口位置上。
-// 位移取事件自带的 screenX 差值：事件就算在队列里堵了一百毫秒，它记的仍是手指按下那一刻的坐标，
-// 所以甩得多远就跟得多远，不会出现「球落在鼠标后面一大截」；
-// 而松手事件在原生鼠标捕获下一定能收到，光标早跑出这颗 56px 的球也一样。
+// 渲染层在拖动里只负责说三件事：按下了、还按着、松手了。球去哪儿由主进程按全局光标算。
+// 之前这里报的是页面里的位移，非 100% 缩放下那些坐标带小数、还会随窗口移动重算，
+// 手停住不动时照样能挤出零点几像素，球就顺着它自己爬。
 let down = false;
-let grab = null;
-let pend = null;
-let raf = 0;
-
-function flush() {
-  raf = 0;
-  if (!pend || !down) return;
-  const p = pend;
-  pend = null;
-  ball.dragMove(p.dx, p.dy);
-}
+let hb = 0;
 
 el.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   down = true;
-  grab = { x: e.screenX, y: e.screenY };
-  pend = null;
   el.setPointerCapture(e.pointerId);
   ball.dragStart();
+  // 心跳只说明「这一下还没松」，一个坐标都不带。
+  // 必须按时钟发，不能挂在 pointermove 上：按住不动的时候系统根本不发鼠标事件，
+  // 只靠 move 当心跳，停手 2.5 秒就会被主进程当成已经松手而放开这次拖动。
+  clearInterval(hb);
+  hb = setInterval(() => { if (down) ball.dragAlive(); }, 120);
 });
 
-window.addEventListener('pointermove', (e) => {
-  if (!down || !grab) return;
-  pend = { dx: e.screenX - grab.x, dy: e.screenY - grab.y };
-  if (!raf) raf = requestAnimationFrame(flush);
-});
-
-// 松手一定要把最后一次位移补上：不然球会差着鼠标那一小段停住
-async function up(e, allowClean) {
+async function up(allowClean) {
   if (!down) return;
-  const last = grab ? { dx: e.screenX - grab.x, dy: e.screenY - grab.y } : pend;
   down = false;
-  grab = null;
-  pend = null;
-  if (raf) {
-    cancelAnimationFrame(raf);
-    raf = 0;
-  }
-  if (last) ball.dragMove(last.dx, last.dy);
-  if (!(await ball.dragEnd())) {
-    if (allowClean) clean();
-  }
+  clearInterval(hb);
+  hb = 0;
+  if (!(await ball.dragEnd()) && allowClean) clean();
 }
 
-window.addEventListener('pointerup', (e) => up(e, true));
-window.addEventListener('pointercancel', (e) => up(e, false));
+window.addEventListener('pointerup', () => up(true));
+window.addEventListener('pointercancel', () => up(false));

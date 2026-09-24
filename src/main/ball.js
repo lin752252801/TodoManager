@@ -12,12 +12,13 @@ const SIZE = BALL;
 let win = null;
 let poll = null;
 let hitTimer = null;
-let dragTimer = null;
 let drag = null;
 let saveTimer = null;
 let interactive = false;
 // 自动放手过一次就记在这儿：渲染层的「松手」会晚一步到达，得告诉它这一下是拖不是点
 let dragFinished = false;
+// 渲染层明确报过「松手」：之后在途的心跳不许把拖动接回来
+let handEnded = false;
 
 // 透明窗口平时整窗穿透，只有光标靠近时才收回，免得球旁边那块看不见的地方挡住桌面右键。
 // 收回的判定不能卡在球面上：按下只有一瞬间，等光标压到球上再翻状态，那一下点击就漏给桌面了，
@@ -25,8 +26,7 @@ let dragFinished = false;
 // 所以感应圈要开得比窗口大得多：真正会吞点击的只有那 56px 窗口本身，感应圈开到 400px
 // 也不会多吞一下点击（光标在圈内、窗口外时窗口根本收不到事件），换来的只是提前量。
 const ARM_R = 400;
-const HIT_POLL_MS = 8; // 一次按下只有几十毫秒，轮询慢了就等于漏按
-const DRAG_POLL_MS = 50; // 只是看门狗的间隔：正常跟手全靠渲染层报上来的位移
+const HIT_POLL_MS = 8; // 一次按下只有几十毫秒，轮询慢了就等于漏按；拖动跟手也是这个间隔
 const DRAG_SLOP = 6; // 按下后先移动这么几个像素才算真拖，避免手抖把球挪走
 const DRAG_STUCK_MS = 2500; // 渲染层这么久没有任何回报才兜底放手，正常拖动一直在报
 
@@ -36,19 +36,17 @@ function setInteractive(on) {
   win.setIgnoreMouseEvents(!on, { forward: true });
 }
 
-function trackHit() {
-  if (!win || win.isDestroyed() || drag) return;
-  const b = win.getBounds();
-  const p = screen.getCursorScreenPoint();
-  const d = Math.hypot(p.x - (b.x + b.width / 2), p.y - (b.y + b.height / 2));
-  setInteractive(d <= ARM_R);
-}
-
-// 拖动改由渲染层报「相对按下点移了多少」，主进程只把这个位移加到按下当刻的窗口位置上。
-// 关键是全程只用同一坐标系里的差值：不去比对渲染层的 clientX 和主进程的 bounds，
-// 所以缩放比例、透明窗口的非客户区、事件迟到多久，都不会让球跟鼠标对不上。
 function inWindow(p, b) {
   return p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
+}
+
+function tick() {
+  if (!win || win.isDestroyed()) return;
+  const b = win.getBounds();
+  const p = screen.getCursorScreenPoint();
+  if (drag) return dragTick(b, p);
+  const d = Math.hypot(p.x - (b.x + b.width / 2), p.y - (b.y + b.height / 2));
+  setInteractive(d <= ARM_R);
 }
 
 function clampToWork(x, y, b) {
@@ -60,75 +58,69 @@ function clampToWork(x, y, b) {
   };
 }
 
-function applyDragPos(x, y) {
-  if (!win || win.isDestroyed()) return;
-  const b = win.getBounds();
+function applyDragPos(x, y, b) {
   const t = clampToWork(x, y, b);
   if (t.x !== b.x || t.y !== b.y) {
     win.setPosition(t.x, t.y);
     persistPos();
   }
-  if (Math.abs(t.x - drag.ox) + Math.abs(t.y - drag.oy) > DRAG_SLOP) drag.moved = true;
 }
 
-// 看门狗：只负责「万一渲染层再也报不上来」时把拖动状态收掉，绝不自己挪窗口。
-// 曾经这里有一条兜底跟随——拿渲染层最后一次报的窗内偏移去减主进程的全局光标，
-// 算出窗口该在哪儿。问题是这两个数不是同一个东西：窗内偏移是 CSS 像素（缩放不是
-// 100% 时带小数），全局光标和窗口位置是整数，一到非 100% 缩放就永远差那半像素，
-// 于是每 50ms 拽一下、渲染层再按位移拽回来，球就在鼠标停住时自己爬。
-// 现在球的位置只有一个来源：渲染层报上来的位移。鼠标停住就没有位移，球就停住。
-function dragTick() {
-  if (!win || win.isDestroyed() || !drag) return;
-  if (Date.now() - drag.reported <= DRAG_STUCK_MS) return;
-  // 光标还在球上就一定收得到松手，别抢着放手：按住不动几秒再拖是正常操作
-  if (inWindow(screen.getCursorScreenPoint(), win.getBounds())) return;
-  const moved = drag.moved;
-  endDrag();
-  dragFinished = moved;
+// 球的位置只认一个来源：主进程轮询到的全局光标。渲染层只管说「按下了 / 还按着 / 松手了」，
+// 一个坐标都不报。原因是缩放不是 100% 时页面里的坐标全带小数（CSS 像素、screenX 都是），
+// 而窗口位置只收整数 DIP，两边对不上；拿页面坐标掺进位移，鼠标停住不动时每一帧都能
+// 差出半像素，球就顺着这半像素自己往前爬。现在改成「按下当刻的窗口位置 + 整数 DIP 光标
+// 相对按下当刻光标移了多少」，两个数都在同一套整数 DIP 里、每帧从起点重算不逐帧累加，
+// 所以光标不动 → 位移不变 → 球一定不动。拖到屏幕边缘被夹住也不会把起点带歪。
+function dragTick(b, p) {
+  const now = Date.now();
+  // 渲染层再也报不上来、光标也不在球上：当作已经松手，别让整个拖动卡死在这儿
+  if (now - drag.seen > DRAG_STUCK_MS && !inWindow(p, b)) {
+    const moved = drag.moved;
+    endDrag();
+    dragFinished = moved;
+    return;
+  }
+  const dx = p.x - drag.cx;
+  const dy = p.y - drag.cy;
+  if (!drag.moved) {
+    if (Math.abs(dx) + Math.abs(dy) <= DRAG_SLOP) return;
+    drag.moved = true;
+  }
+  applyDragPos(drag.ox + dx, drag.oy + dy, b);
 }
 
-function beginDrag(ox, oy, moved) {
-  drag = { ox, oy, moved, reported: Date.now() };
+function beginDrag(moved) {
+  const b = win.getBounds();
+  const c = screen.getCursorScreenPoint();
+  drag = { ox: b.x, oy: b.y, cx: c.x, cy: c.y, moved, seen: Date.now() };
   setInteractive(true);
-  clearInterval(dragTimer);
-  dragTimer = setInterval(dragTick, DRAG_POLL_MS);
 }
 
 function startDrag() {
   if (!win || win.isDestroyed()) return;
-  const b = win.getBounds();
   dragFinished = false;
-  beginDrag(b.x, b.y, false);
+  handEnded = false;
+  beginDrag(false);
 }
 
-// 位移由渲染层在 pointermove 里算好：事件就算迟到，它带的 screenX 仍是按下那一刻的坐标，
-// 差值不会骗人；主进程按这个差值挪窗，甩多远就跟多远。
-function moveDrag(dx, dy) {
+// 心跳：这一下按下还在。位置不从这儿走，所以哪怕报得稀烂也不会把球带偏。
+function dragAlive() {
   if (!win || win.isDestroyed()) return;
-  // 渲染层传来的数直接进 IPC，什么都可能是：非有限值一旦当作起点存进 drag，
-  // 这之后的每一帧都会算出 NaN 的位置，整次拖动就再也跟不上了，所以先丢掉这一帧。
-  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
-  // 非 100% 缩放下 screenX/screenY 带小数，而窗口位置只收整数；
-  // 位移本来就是「相对按下点」的总差值，取整最多偏半像素，也不会逐帧累积。
-  dx = Math.round(dx);
-  dy = Math.round(dy);
-  if (!drag) {
-    // 兜底放手之后手指还在动：把现在的位置当成新起点接上，别让球从此不跟手
-    const b = win.getBounds();
-    beginDrag(b.x - dx, b.y - dy, true);
+  if (drag) {
+    drag.seen = Date.now();
+    return;
   }
-  drag.reported = Date.now();
-  if (Math.abs(dx) + Math.abs(dy) > DRAG_SLOP) drag.moved = true;
-  applyDragPos(drag.ox + dx, drag.oy + dy);
+  // 已经明确松过手之后迟到的心跳不算新的按下：那是在途的上一趟，接上就成了「没按键球也跟手」
+  if (!handEnded) beginDrag(true);
 }
 
 // 回报这一下到底有没有真拖过：渲染层据此决定是挪位置还是清理内存
-function endDrag() {
+function endDrag(byHand) {
   const moved = drag ? drag.moved : dragFinished;
   dragFinished = false;
-  clearInterval(dragTimer);
-  dragTimer = null;
   drag = null;
+  if (byHand) handEnded = true;
   return moved;
 }
 
@@ -217,7 +209,7 @@ function create() {
       devTools: !app.isPackaged
     }
   });
-  // 默认整窗穿透，trackHit 发现光标靠近了再收回
+  // 默认整窗穿透，tick 发现光标靠近了再收回
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setIgnoreMouseEvents(true, { forward: true });
   interactive = false;
@@ -232,7 +224,7 @@ function create() {
   clearInterval(poll);
   poll = setInterval(pushUsage, 1000);
   clearInterval(hitTimer);
-  hitTimer = setInterval(trackHit, HIT_POLL_MS);
+  hitTimer = setInterval(tick, HIT_POLL_MS);
 }
 
 function destroy() {
@@ -270,8 +262,8 @@ function register() {
     return { mb: Math.round(bytes / 1048576), ...usage() };
   });
   ipcMain.on('ball:drag-start', () => startDrag());
-  ipcMain.on('ball:drag-move', (_e, dx, dy) => moveDrag(dx, dy));
-  ipcMain.handle('ball:drag-end', () => endDrag());
+  ipcMain.on('ball:drag-alive', () => dragAlive());
+  ipcMain.handle('ball:drag-end', () => endDrag(true));
 }
 
 function sync() {
