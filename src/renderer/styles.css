@@ -71,6 +71,10 @@
   --pad: 16px;
   --radius: 19px;
   --hover: rgba(15, 28, 51, 0.055);
+
+  /* 吸附遮罩：底色要压得住身后的内容，高光负责玻璃质感 */
+  --veil: rgba(233, 241, 251, 0.74);
+  --veil-hi: rgba(255, 255, 255, 0.5);
 }
 
 body.dark {
@@ -137,6 +141,9 @@ body.dark {
   --shadow-lg: 0 20px 48px -20px rgba(0, 0, 0, 0.9);
 
   --hover: rgba(255, 255, 255, 0.08);
+
+  --veil: rgba(10, 18, 40, 0.72);
+  --veil-hi: rgba(255, 255, 255, 0.16);
 }
 
 * {
@@ -1431,6 +1438,62 @@ input[type="checkbox"]:checked::after {
 .slider:focus-visible {
   outline: 2px solid var(--teal-brd);
   outline-offset: 3px;
+}
+
+/* ---------- 吸附收起时露出的那 6px：毛玻璃遮罩 ----------
+   收起只是把整窗滑到屏外，内容仍按完整尺寸绘制，
+   不遮的话那一条会露出卡片、文字、边框的碎片，像出了 bug。
+   遮罩盖住整条边：backdrop-filter 把身后的内容糊成一片，
+   再压一层玻璃色调，只留质感不留字形；把手（.grip，z-index 40）压在它上面。 */
+.snap-veil {
+  position: fixed;
+  z-index: 39;
+  pointer-events: none;
+  opacity: 0;
+  /* 只做淡入淡出、不跟着滑窗走：展开时主进程在动画开始前就把类去掉，
+     留太长会在滑出的窗口上拖出一道 6px 的竖条 */
+  transition: opacity 0.07s ease;
+  background:
+    /* 磨砂纹：细斜纹让这条边看起来是「雾面玻璃」而不是一块死色 */
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 1px, rgba(255, 255, 255, 0) 1px 3px),
+    linear-gradient(180deg, var(--veil-hi) 0%, transparent 20%, transparent 80%, var(--veil-hi) 100%),
+    var(--glass-bg),
+    var(--veil);
+  backdrop-filter: blur(26px) saturate(1.5);
+  -webkit-backdrop-filter: blur(26px) saturate(1.5);
+}
+
+body.snap-right .snap-veil,
+body.snap-left .snap-veil,
+body.snap-top .snap-veil {
+  opacity: 1;
+}
+
+body.snap-right .snap-veil {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 0 3px 3px 0;
+  box-shadow: inset 1px 0 0 var(--glass-inset);
+}
+
+body.snap-left .snap-veil {
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 3px 0 0 3px;
+  box-shadow: inset -1px 0 0 var(--glass-inset);
+}
+
+body.snap-top .snap-veil {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  border-radius: 3px 3px 0 0;
+  box-shadow: inset 0 -1px 0 var(--glass-inset);
 }
 
 /* ---------- 吸附时露出的触发条 ---------- */
