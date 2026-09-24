@@ -19,78 +19,103 @@ let interactive = false;
 // 自动放手过一次就记在这儿：渲染层的「松手」会晚一步到达，得告诉它这一下是拖不是点
 let dragFinished = false;
 
-// Chromium 给透明窗口额外加了 8px 非客户区（内容 56，系统矩形 64），
-// 这圈像素看不见却照样吃鼠标事件，球下方/右方就成了挡桌面右键的死区。
-// 渲染层又收不到 forward 转发的 mousemove，所以直接在主进程比对光标和圆心。
-const HIT_R = 27.5;
-const DRAG_POLL_MS = 16; // 拖动时光标要跟得上看，不能按 60ms 的悬停节奏走
+// 透明窗口平时整窗穿透，只有光标靠近时才收回，免得球旁边那块看不见的地方挡住桌面右键。
+// 收回的判定不能卡在球面上：按下只有一瞬间，等光标压到球上再翻状态，那一下点击就漏给桌面了，
+// 而且漏掉之后桌面（比如桌面的框选）会把鼠标捕获走，球页面连后续的 move 都收不到，只能干看着。
+// 所以感应圈要开得比窗口大得多：真正会吞点击的只有那 56px 窗口本身，感应圈开到 400px
+// 也不会多吞一下点击（光标在圈内、窗口外时窗口根本收不到事件），换来的只是提前量。
+const ARM_R = 400;
+const HIT_POLL_MS = 8; // 一次按下只有几十毫秒，轮询慢了就等于漏按
+const DRAG_POLL_MS = 50; // 只是兜底轮询：正常跟手靠渲染层报上来的位移
 const DRAG_SLOP = 6; // 按下后先移动这么几个像素才算真拖，避免手抖把球挪走
+const DRAG_STUCK_MS = 2500; // 渲染层这么久没有任何回报才兜底放手，正常拖动一直在报
 
-function trackHit() {
-  if (!win || win.isDestroyed()) return;
-  const b = win.getBounds();
-  const p = screen.getCursorScreenPoint();
-  if (drag) {
-    // 拖动期间不许切回穿透：一穿窗口就收不到「松手」，长按状态会粘住
-    if (!inWindow(p, b)) {
-      // 拖到屏幕边被夹住时鼠标会跑出窗口，离开一小会儿就当作已经放手
-      if (!drag.outSince) drag.outSince = Date.now();
-      else if (Date.now() - drag.outSince > 350) {
-        const moved = drag.moved;
-        endDrag();
-        dragFinished = moved;
-      }
-    } else {
-      drag.outSince = 0;
-    }
-    return;
-  }
-  const dx = p.x - (b.x + SIZE / 2);
-  const dy = p.y - (b.y + SIZE / 2);
-  const on = dx * dx + dy * dy <= HIT_R * HIT_R;
-  if (on === interactive) return;
+function setInteractive(on) {
+  if (!win || win.isDestroyed() || interactive === on) return;
   interactive = on;
   win.setIgnoreMouseEvents(!on, { forward: true });
 }
 
+function trackHit() {
+  if (!win || win.isDestroyed() || drag) return;
+  const b = win.getBounds();
+  const p = screen.getCursorScreenPoint();
+  const d = Math.hypot(p.x - (b.x + b.width / 2), p.y - (b.y + b.height / 2));
+  setInteractive(d <= ARM_R);
+}
+
+// 拖动改由渲染层报「相对按下点移了多少」，主进程只把这个位移加到按下当刻的窗口位置上。
+// 关键是全程只用同一坐标系里的差值：不去比对渲染层的 clientX 和主进程的 bounds，
+// 所以缩放比例、透明窗口的非客户区、事件迟到多久，都不会让球跟鼠标对不上。
 function inWindow(p, b) {
   return p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
 }
 
-// 拖动改由主进程驱动：渲染层按 screenX 增量挪窗，鼠标一超出这颗 56px 的球就再也收不到事件，
-// 长按状态卡住，之后鼠标一靠近球就跟着跑，像在用鼠标推它。
-// 反过来让窗口跟着光标走，抓取点始终留在球内，事件就不会断。
-function dragTick() {
-  if (!win || win.isDestroyed() || !drag) return;
-  const p = screen.getCursorScreenPoint();
-  // 按下不等于拖动：没移动开几个像素就别挪窗口，否则手一抖球就跑偏
-  if (!drag.moved && Math.abs(p.x - drag.x0) + Math.abs(p.y - drag.y0) <= DRAG_SLOP) return;
-  drag.moved = true;
-  const b = win.getBounds();
+function clampToWork(x, y, b) {
   const wa = screen.getDisplayMatching(b).workArea;
-  const x = Math.max(wa.x, Math.min(p.x - drag.dx, wa.x + wa.width - SIZE));
-  const y = Math.max(wa.y, Math.min(p.y - drag.dy, wa.y + wa.height - SIZE));
-  if (x !== b.x || y !== b.y) {
-    win.setPosition(x, y);
-    persistPos();
-  }
+  return {
+    x: Math.max(wa.x, Math.min(x, wa.x + wa.width - b.width)),
+    y: Math.max(wa.y, Math.min(y, wa.y + wa.height - b.height))
+  };
 }
 
-function startDrag(dx, dy, sx, sy) {
+function applyDragPos(x, y) {
   if (!win || win.isDestroyed()) return;
-  const p = screen.getCursorScreenPoint();
-  // 按下点必须由渲染层随事件一起报上来：事件送达可能滞后上百毫秒，
-  // 那时再取当前光标，起点就成了拖动终点，阈值判定永远不成立、窗口纹丝不动
-  const x0 = Number.isFinite(sx) ? sx : p.x;
-  const y0 = Number.isFinite(sy) ? sy : p.y;
-  drag = { dx: Math.round(dx), dy: Math.round(dy), x0, y0, moved: false, outSince: 0 };
-  dragFinished = false;
-  if (!interactive) {
-    interactive = true;
-    win.setIgnoreMouseEvents(false, { forward: true });
+  const b = win.getBounds();
+  const t = clampToWork(x, y, b);
+  if (t.x !== b.x || t.y !== b.y) {
+    win.setPosition(t.x, t.y);
+    persistPos();
   }
+  if (Math.abs(t.x - drag.ox) + Math.abs(t.y - drag.oy) > DRAG_SLOP) drag.moved = true;
+}
+
+// 兜底：万一原生捕获在个别机器上不灵，光标早就离开球窗、渲染层又迟迟不报位移时，
+// 用最后一次「光标在窗内的位置」把球继续贴着鼠标走，不至于半路停住。
+function dragTick() {
+  if (!win || win.isDestroyed() || !drag) return;
+  const now = Date.now();
+  const b = win.getBounds();
+  const p = screen.getCursorScreenPoint();
+  const inside = inWindow(p, b);
+  // 光标还在球上就一定收得到松手，别抢着放手：按住不动几秒再拖是正常操作
+  if (!inside && now - drag.reported > DRAG_STUCK_MS) {
+    const moved = drag.moved;
+    endDrag();
+    dragFinished = moved;
+    return;
+  }
+  if (!drag.cursor || now - drag.reported < 150) return;
+  applyDragPos(p.x - drag.cursor.x, p.y - drag.cursor.y);
+}
+
+function beginDrag(ox, oy, moved) {
+  drag = { ox, oy, moved, reported: Date.now(), cursor: null };
+  setInteractive(true);
   clearInterval(dragTimer);
   dragTimer = setInterval(dragTick, DRAG_POLL_MS);
+}
+
+function startDrag() {
+  if (!win || win.isDestroyed()) return;
+  const b = win.getBounds();
+  dragFinished = false;
+  beginDrag(b.x, b.y, false);
+}
+
+// 位移由渲染层在 pointermove 里算好：事件就算迟到，它带的 screenX 仍是按下那一刻的坐标，
+// 差值不会骗人；主进程按这个差值挪窗，甩多远就跟多远。
+function moveDrag(dx, dy, cx, cy) {
+  if (!win || win.isDestroyed()) return;
+  if (!drag) {
+    // 兜底放手之后手指还在动：把现在的位置当成新起点接上，别让球从此不跟手
+    const b = win.getBounds();
+    beginDrag(b.x - Math.round(dx), b.y - Math.round(dy), true);
+  }
+  drag.reported = Date.now();
+  drag.cursor = { x: Math.round(cx), y: Math.round(cy) };
+  if (Math.abs(dx) + Math.abs(dy) > DRAG_SLOP) drag.moved = true;
+  applyDragPos(drag.ox + dx, drag.oy + dy);
 }
 
 // 回报这一下到底有没有真拖过：渲染层据此决定是挪位置还是清理内存
@@ -102,6 +127,7 @@ function endDrag() {
   drag = null;
   return moved;
 }
+
 
 const TRIM_PS = [
   "$ErrorActionPreference='SilentlyContinue'",
@@ -187,7 +213,7 @@ function create() {
       devTools: !app.isPackaged
     }
   });
-  // 默认整窗穿透，trackHit 发现光标进圆了再收回
+  // 默认整窗穿透，trackHit 发现光标靠近了再收回
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setIgnoreMouseEvents(true, { forward: true });
   interactive = false;
@@ -202,7 +228,7 @@ function create() {
   clearInterval(poll);
   poll = setInterval(pushUsage, 1000);
   clearInterval(hitTimer);
-  hitTimer = setInterval(trackHit, 60);
+  hitTimer = setInterval(trackHit, HIT_POLL_MS);
 }
 
 function destroy() {
@@ -239,7 +265,8 @@ function register() {
     pushUsage();
     return { mb: Math.round(bytes / 1048576), ...usage() };
   });
-  ipcMain.on('ball:drag-start', (_e, dx, dy, sx, sy) => startDrag(dx, dy, sx, sy));
+  ipcMain.on('ball:drag-start', () => startDrag());
+  ipcMain.on('ball:drag-move', (_e, dx, dy, cx, cy) => moveDrag(dx, dy, cx, cy));
   ipcMain.handle('ball:drag-end', () => endDrag());
 }
 

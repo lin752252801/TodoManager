@@ -43,18 +43,6 @@ function apply(u) {
 ball.onUsage(apply);
 ball.usage().then(apply);
 
-// 拖动只报「从哪儿抓的」和「松手了」，挪窗口的事交给主进程按全局光标位置驱动：
-// 球只有 56px，靠页面里的 mousemove 增量挪，鼠标一快就脱手，长按状态还会永远卡住。
-// 所以按下当场就把主进程挂上，是否真拖过由主进程回答（它才看得到全局光标）。
-let down = null;
-
-el.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
-  down = true;
-  el.setPointerCapture(e.pointerId);
-  ball.dragStart(e.clientX, e.clientY, e.screenX, e.screenY);
-});
-
 let busy = false;
 
 async function clean() {
@@ -70,14 +58,56 @@ async function clean() {
   }
 }
 
-async function up() {
-  if (!down) return;
-  down = null;
-  if (!(await ball.dragEnd())) clean();
+// 拖动只报「相对按下点移了多少像素」，主进程把这个位移加到按下当刻的窗口位置上。
+// 位移取事件自带的 screenX 差值：事件就算在队列里堵了一百毫秒，它记的仍是手指按下那一刻的坐标，
+// 所以甩得多远就跟得多远，不会出现「球落在鼠标后面一大截」；
+// 而松手事件在原生鼠标捕获下一定能收到，光标早跑出这颗 56px 的球也一样。
+let down = false;
+let grab = null;
+let pend = null;
+let raf = 0;
+
+function flush() {
+  raf = 0;
+  if (!pend || !down) return;
+  const p = pend;
+  pend = null;
+  ball.dragMove(p.dx, p.dy, p.cx, p.cy);
 }
 
-el.addEventListener('pointerup', up);
-el.addEventListener('pointercancel', () => {
-  down = null;
-  ball.dragEnd();
+el.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  down = true;
+  grab = { x: e.screenX, y: e.screenY };
+  pend = null;
+  el.setPointerCapture(e.pointerId);
+  ball.dragStart();
 });
+
+window.addEventListener('pointermove', (e) => {
+  if (!down || !grab) return;
+  pend = { dx: e.screenX - grab.x, dy: e.screenY - grab.y, cx: e.clientX, cy: e.clientY };
+  if (!raf) raf = requestAnimationFrame(flush);
+});
+
+// 松手一定要把最后一次位移补上：不然球会差着鼠标那一小段停住
+async function up(e, allowClean) {
+  if (!down) return;
+  const last = grab
+    ? { dx: e.screenX - grab.x, dy: e.screenY - grab.y, cx: e.clientX, cy: e.clientY }
+    : pend;
+  down = false;
+  grab = null;
+  pend = null;
+  if (raf) {
+    cancelAnimationFrame(raf);
+    raf = 0;
+  }
+  if (last) ball.dragMove(last.dx, last.dy, last.cx, last.cy);
+  if (!(await ball.dragEnd())) {
+    if (allowClean) clean();
+  }
+}
+
+window.addEventListener('pointerup', (e) => up(e, true));
+window.addEventListener('pointercancel', (e) => up(e, false));
