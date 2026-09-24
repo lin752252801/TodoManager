@@ -1,8 +1,10 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 const { execFile } = require('child_process');
 const store = require('./store');
+const paths = require('./paths');
 
 // 窗口必须和球体一样大：透明像素也属于这个置顶窗口，会吞掉鼠标事件，
 // 留白一多，球旁边那圈看着是空的，却挡住桌面右键
@@ -64,6 +66,29 @@ function applyDragPos(x, y, b) {
     win.setPosition(t.x, t.y);
     persistPos();
   }
+  return t;
+}
+
+// 拖动现场：每 30ms 记一行「光标读数 / 球的位置」，只留最近一次拖动，写在 data 里几 KB 而已。
+// 「手不动球自己走」在开发机上一直复现不出来，用户那边再报第二次的话，这段现场能一眼看出
+// 到底是系统给的光标读数自己在动，还是另有别人在挪窗口。
+const DRAG_LOG_MS = 30;
+const DRAG_LOG_MAX = 400;
+
+function logDrag(p, t) {
+  const d = drag;
+  const now = Date.now();
+  if (!d.moved || now - d.last < DRAG_LOG_MS || d.log.length >= DRAG_LOG_MAX) return;
+  d.last = now;
+  d.log.push(`+${now - d.t0}ms  光标=${p.x},${p.y}  位移=${p.x - d.cx},${p.y - d.cy}  球=${t.x},${t.y}`);
+}
+
+function writeDragLog(d, byHand) {
+  const head =
+    `拖动现场 ${new Date().toLocaleString()}\n` +
+    `缩放=${d.sf}  按下时球=${d.ox},${d.oy}  按下时光标=${d.cx},${d.cy}\n` +
+    `结束=${byHand ? '松手' : '兜底放手'}  共 ${d.log.length} 行${d.log.length >= DRAG_LOG_MAX ? '（只记前 12 秒）' : ''}\n`;
+  fs.writeFile(path.join(paths.dataDir, 'ball-drag.log'), head + d.log.join('\n') + '\n', () => {});
 }
 
 // 球的位置只认一个来源：主进程轮询到的全局光标。渲染层只管说「按下了 / 还按着 / 松手了」，
@@ -87,13 +112,15 @@ function dragTick(b, p) {
     if (Math.abs(dx) + Math.abs(dy) <= DRAG_SLOP) return;
     drag.moved = true;
   }
-  applyDragPos(drag.ox + dx, drag.oy + dy, b);
+  logDrag(p, applyDragPos(drag.ox + dx, drag.oy + dy, b));
 }
 
 function beginDrag(moved) {
   const b = win.getBounds();
   const c = screen.getCursorScreenPoint();
-  drag = { ox: b.x, oy: b.y, cx: c.x, cy: c.y, moved, seen: Date.now() };
+  const sf = screen.getDisplayMatching(b).scaleFactor;
+  const now = Date.now();
+  drag = { ox: b.x, oy: b.y, cx: c.x, cy: c.y, sf, moved, seen: now, t0: now, last: 0, log: [] };
   setInteractive(true);
 }
 
@@ -117,10 +144,12 @@ function dragAlive() {
 
 // 回报这一下到底有没有真拖过：渲染层据此决定是挪位置还是清理内存
 function endDrag(byHand) {
-  const moved = drag ? drag.moved : dragFinished;
+  const d = drag;
+  const moved = d ? d.moved : dragFinished;
   dragFinished = false;
   drag = null;
   if (byHand) handEnded = true;
+  if (d && d.moved && d.log.length) writeDragLog(d, byHand);
   return moved;
 }
 
