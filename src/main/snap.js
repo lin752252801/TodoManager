@@ -38,6 +38,7 @@ class SnapController {
     this.editing = false;
     this.editingUntil = 0;
     this.topmost = false;
+    this.topSeen = 0;
     const s = store.getSettings();
     this.expandDelay = Number.isFinite(s.expandDelayMs) ? s.expandDelayMs : 120;
     // 收起和展开用同一个延迟：两段时间不对称时，用户会觉得「移出去半天不收回」
@@ -73,6 +74,18 @@ class SnapController {
     if (this.topmost === on) return;
     this.topmost = on;
     this.win.setAlwaysOnTop(on, 'floating');
+  }
+
+  // 置顶样式会被外部悄悄收回（实测：面板吸附在顶边时被文件夹窗口压住，而窗口矩形还在吸附位上，
+  // OS 侧的 WS_EX_TOPMOST 已经没了）。setTopmost 有 `this.topmost === on` 的缓存短路，
+  // 样式一旦丢了就永远不会再按回去，所以得拿真实样式核对，漂了就补。
+  // 对照实验排除了自己人：展开动画、moveTop、隐藏/显示、最小化/恢复、改透明度、失焦、
+  // 收起态原地停 12 秒，样式全都还在。
+  verifyTopmost() {
+    if (this.win.isDestroyed()) return;
+    if (this.win.isAlwaysOnTop() !== this.topmost) {
+      this.win.setAlwaysOnTop(this.topmost, 'floating');
+    }
   }
 
   dispose() {
@@ -270,6 +283,8 @@ class SnapController {
     if (this.mode !== 'hidden' || !this.normal) return;
     this.mode = 'expanded';
     this.pending = null;
+    // 展开的那一刻先补一次样式：动画只有 160ms，等轮询来不及，用户会看见面板从别的窗口后面滑出来
+    this.verifyTopmost();
     this.animate(this.normal, () => {
       if (!this.win.isDestroyed()) this.win.moveTop();
     });
@@ -330,6 +345,10 @@ class SnapController {
     }
     if (!this.win.isVisible()) return;
     const now = Date.now();
+    if (now - this.topSeen > 1000) {
+      this.topSeen = now;
+      this.verifyTopmost();
+    }
     const cursor = screen.getCursorScreenPoint();
     const wa = this.workArea();
     const resizing = this.inResize(now);
