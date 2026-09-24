@@ -51,21 +51,30 @@ function tick() {
   setInteractive(d <= ARM_R);
 }
 
-function clampToWork(x, y, b) {
-  const wa = screen.getDisplayMatching(b).workArea;
-  // 必须取整：setPosition 只收整数，喂小数会当场抛异常（非 100% 缩放下位移就是小数）
+function clampToWork(x, y) {
+  const wa = screen.getDisplayMatching({ x, y, width: SIZE, height: SIZE }).workArea;
+  // 必须取整：窗口位置只收整数，喂小数会当场抛异常（非 100% 缩放下位移就是小数）
+  // 夹边一律按 56 算，不按 getBounds 的实际宽高：非 100% 缩放下实际宽高会多 1px 边框取整，
+  // 拿它当参照每帧都能差出 1，球就顺着这 1px 自己往前爬
   return {
-    x: Math.round(Math.max(wa.x, Math.min(x, wa.x + wa.width - b.width))),
-    y: Math.round(Math.max(wa.y, Math.min(y, wa.y + wa.height - b.height)))
+    x: Math.round(Math.max(wa.x, Math.min(x, wa.x + wa.width - SIZE))),
+    y: Math.round(Math.max(wa.y, Math.min(y, wa.y + wa.height - SIZE)))
   };
 }
 
-function applyDragPos(x, y, b) {
-  const t = clampToWork(x, y, b);
-  if (t.x !== b.x || t.y !== b.y) {
-    win.setPosition(t.x, t.y);
-    persistPos();
-  }
+// 上一次真正写给窗口的位置。参照必须是「我们要求的位置」而不是 getBounds()：
+// 缩放不是 100% 时，窗口实际宽高会比要的多 1px（边框取整），拿实际 bounds 一比就永远「有变化」。
+let lastSet = null;
+
+function applyDragPos(x, y) {
+  const t = clampToWork(x, y);
+  if (lastSet && lastSet.x === t.x && lastSet.y === t.y) return t;
+  lastSet = t;
+  // 一定要带尺寸：setPosition 只挪位置，非 100% 缩放下每调一次窗口就长大 1 像素（实测 125% 调
+  // 100 次从 56 变 156）。球画在窗口正中，窗口一长球就自己往前挪 —— 用户报的
+  // 「100 不会动，125 以上全部都会动」就是这个。setContentBounds 把视口钉死在 56，怎么拖都不涨。
+  win.setContentBounds({ x: t.x, y: t.y, width: SIZE, height: SIZE });
+  persistPos();
   return t;
 }
 
@@ -112,7 +121,7 @@ function dragTick(b, p) {
     if (Math.abs(dx) + Math.abs(dy) <= DRAG_SLOP) return;
     drag.moved = true;
   }
-  logDrag(p, applyDragPos(drag.ox + dx, drag.oy + dy, b));
+  logDrag(p, applyDragPos(drag.ox + dx, drag.oy + dy));
 }
 
 function beginDrag(moved) {
@@ -121,6 +130,7 @@ function beginDrag(moved) {
   const sf = screen.getDisplayMatching(b).scaleFactor;
   const now = Date.now();
   drag = { ox: b.x, oy: b.y, cx: c.x, cy: c.y, sf, moved, seen: now, t0: now, last: 0, log: [] };
+  lastSet = null; // 这一趟的第一帧一定要真的写一次窗口
   setInteractive(true);
 }
 
@@ -213,6 +223,7 @@ function pushUsage() {
 function create() {
   if (win && !win.isDestroyed()) return;
   const p = savedPos();
+  lastSet = null;
   win = new BrowserWindow({
     x: p.x,
     y: p.y,
