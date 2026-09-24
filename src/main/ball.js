@@ -53,9 +53,10 @@ function inWindow(p, b) {
 
 function clampToWork(x, y, b) {
   const wa = screen.getDisplayMatching(b).workArea;
+  // 必须取整：setPosition 只收整数，喂小数会当场抛异常（非 100% 缩放下位移就是小数）
   return {
-    x: Math.max(wa.x, Math.min(x, wa.x + wa.width - b.width)),
-    y: Math.max(wa.y, Math.min(y, wa.y + wa.height - b.height))
+    x: Math.round(Math.max(wa.x, Math.min(x, wa.x + wa.width - b.width))),
+    y: Math.round(Math.max(wa.y, Math.min(y, wa.y + wa.height - b.height)))
   };
 }
 
@@ -107,13 +108,20 @@ function startDrag() {
 // 差值不会骗人；主进程按这个差值挪窗，甩多远就跟多远。
 function moveDrag(dx, dy, cx, cy) {
   if (!win || win.isDestroyed()) return;
+  // 渲染层传来的数直接进 IPC，什么都可能是：非有限值一旦当作起点存进 drag，
+  // 这之后的每一帧都会算出 NaN 的位置，整次拖动就再也跟不上了，所以先丢掉这一帧。
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+  // 非 100% 缩放下 screenX/screenY 带小数，而窗口位置只收整数；
+  // 位移本来就是「相对按下点」的总差值，取整最多偏半像素，也不会逐帧累积。
+  dx = Math.round(dx);
+  dy = Math.round(dy);
   if (!drag) {
     // 兜底放手之后手指还在动：把现在的位置当成新起点接上，别让球从此不跟手
     const b = win.getBounds();
-    beginDrag(b.x - Math.round(dx), b.y - Math.round(dy), true);
+    beginDrag(b.x - dx, b.y - dy, true);
   }
   drag.reported = Date.now();
-  drag.cursor = { x: Math.round(cx), y: Math.round(cy) };
+  drag.cursor = Number.isFinite(cx) && Number.isFinite(cy) ? { x: Math.round(cx), y: Math.round(cy) } : drag.cursor;
   if (Math.abs(dx) + Math.abs(dy) > DRAG_SLOP) drag.moved = true;
   applyDragPos(drag.ox + dx, drag.oy + dy);
 }
