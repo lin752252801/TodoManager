@@ -26,7 +26,7 @@ let dragFinished = false;
 // 也不会多吞一下点击（光标在圈内、窗口外时窗口根本收不到事件），换来的只是提前量。
 const ARM_R = 400;
 const HIT_POLL_MS = 8; // 一次按下只有几十毫秒，轮询慢了就等于漏按
-const DRAG_POLL_MS = 50; // 只是兜底轮询：正常跟手靠渲染层报上来的位移
+const DRAG_POLL_MS = 50; // 只是看门狗的间隔：正常跟手全靠渲染层报上来的位移
 const DRAG_SLOP = 6; // 按下后先移动这么几个像素才算真拖，避免手抖把球挪走
 const DRAG_STUCK_MS = 2500; // 渲染层这么久没有任何回报才兜底放手，正常拖动一直在报
 
@@ -71,27 +71,24 @@ function applyDragPos(x, y) {
   if (Math.abs(t.x - drag.ox) + Math.abs(t.y - drag.oy) > DRAG_SLOP) drag.moved = true;
 }
 
-// 兜底：万一原生捕获在个别机器上不灵，光标早就离开球窗、渲染层又迟迟不报位移时，
-// 用最后一次「光标在窗内的位置」把球继续贴着鼠标走，不至于半路停住。
+// 看门狗：只负责「万一渲染层再也报不上来」时把拖动状态收掉，绝不自己挪窗口。
+// 曾经这里有一条兜底跟随——拿渲染层最后一次报的窗内偏移去减主进程的全局光标，
+// 算出窗口该在哪儿。问题是这两个数不是同一个东西：窗内偏移是 CSS 像素（缩放不是
+// 100% 时带小数），全局光标和窗口位置是整数，一到非 100% 缩放就永远差那半像素，
+// 于是每 50ms 拽一下、渲染层再按位移拽回来，球就在鼠标停住时自己爬。
+// 现在球的位置只有一个来源：渲染层报上来的位移。鼠标停住就没有位移，球就停住。
 function dragTick() {
   if (!win || win.isDestroyed() || !drag) return;
-  const now = Date.now();
-  const b = win.getBounds();
-  const p = screen.getCursorScreenPoint();
-  const inside = inWindow(p, b);
+  if (Date.now() - drag.reported <= DRAG_STUCK_MS) return;
   // 光标还在球上就一定收得到松手，别抢着放手：按住不动几秒再拖是正常操作
-  if (!inside && now - drag.reported > DRAG_STUCK_MS) {
-    const moved = drag.moved;
-    endDrag();
-    dragFinished = moved;
-    return;
-  }
-  if (!drag.cursor || now - drag.reported < 150) return;
-  applyDragPos(p.x - drag.cursor.x, p.y - drag.cursor.y);
+  if (inWindow(screen.getCursorScreenPoint(), win.getBounds())) return;
+  const moved = drag.moved;
+  endDrag();
+  dragFinished = moved;
 }
 
 function beginDrag(ox, oy, moved) {
-  drag = { ox, oy, moved, reported: Date.now(), cursor: null };
+  drag = { ox, oy, moved, reported: Date.now() };
   setInteractive(true);
   clearInterval(dragTimer);
   dragTimer = setInterval(dragTick, DRAG_POLL_MS);
@@ -106,7 +103,7 @@ function startDrag() {
 
 // 位移由渲染层在 pointermove 里算好：事件就算迟到，它带的 screenX 仍是按下那一刻的坐标，
 // 差值不会骗人；主进程按这个差值挪窗，甩多远就跟多远。
-function moveDrag(dx, dy, cx, cy) {
+function moveDrag(dx, dy) {
   if (!win || win.isDestroyed()) return;
   // 渲染层传来的数直接进 IPC，什么都可能是：非有限值一旦当作起点存进 drag，
   // 这之后的每一帧都会算出 NaN 的位置，整次拖动就再也跟不上了，所以先丢掉这一帧。
@@ -121,7 +118,6 @@ function moveDrag(dx, dy, cx, cy) {
     beginDrag(b.x - dx, b.y - dy, true);
   }
   drag.reported = Date.now();
-  drag.cursor = Number.isFinite(cx) && Number.isFinite(cy) ? { x: Math.round(cx), y: Math.round(cy) } : drag.cursor;
   if (Math.abs(dx) + Math.abs(dy) > DRAG_SLOP) drag.moved = true;
   applyDragPos(drag.ox + dx, drag.oy + dy);
 }
@@ -274,7 +270,7 @@ function register() {
     return { mb: Math.round(bytes / 1048576), ...usage() };
   });
   ipcMain.on('ball:drag-start', () => startDrag());
-  ipcMain.on('ball:drag-move', (_e, dx, dy, cx, cy) => moveDrag(dx, dy, cx, cy));
+  ipcMain.on('ball:drag-move', (_e, dx, dy) => moveDrag(dx, dy));
   ipcMain.handle('ball:drag-end', () => endDrag());
 }
 

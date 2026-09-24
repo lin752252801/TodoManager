@@ -72,7 +72,7 @@ function flush() {
   if (!pend || !down) return;
   const p = pend;
   pend = null;
-  ball.dragMove(p.dx, p.dy, p.cx, p.cy);
+  ball.dragMove(p.dx, p.dy);
 }
 
 el.addEventListener('pointerdown', (e) => {
@@ -86,16 +86,14 @@ el.addEventListener('pointerdown', (e) => {
 
 window.addEventListener('pointermove', (e) => {
   if (!down || !grab) return;
-  pend = { dx: e.screenX - grab.x, dy: e.screenY - grab.y, cx: e.clientX, cy: e.clientY };
+  pend = { dx: e.screenX - grab.x, dy: e.screenY - grab.y };
   if (!raf) raf = requestAnimationFrame(flush);
 });
 
 // 松手一定要把最后一次位移补上：不然球会差着鼠标那一小段停住
 async function up(e, allowClean) {
   if (!down) return;
-  const last = grab
-    ? { dx: e.screenX - grab.x, dy: e.screenY - grab.y, cx: e.clientX, cy: e.clientY }
-    : pend;
+  const last = grab ? { dx: e.screenX - grab.x, dy: e.screenY - grab.y } : pend;
   down = false;
   grab = null;
   pend = null;
@@ -103,7 +101,7 @@ async function up(e, allowClean) {
     cancelAnimationFrame(raf);
     raf = 0;
   }
-  if (last) ball.dragMove(last.dx, last.dy, last.cx, last.cy);
+  if (last) ball.dragMove(last.dx, last.dy);
   if (!(await ball.dragEnd())) {
     if (allowClean) clean();
   }
