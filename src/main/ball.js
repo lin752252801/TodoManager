@@ -220,9 +220,9 @@ function pushUsage() {
   win.webContents.send('usage', usage());
 }
 
-function create() {
+function create(at) {
   if (win && !win.isDestroyed()) return;
-  const p = savedPos();
+  const p = clampToWork(at ? at.x : savedPos().x, at ? at.y : savedPos().y);
   lastSet = null;
   win = new BrowserWindow({
     x: p.x,
@@ -304,6 +304,27 @@ function register() {
   ipcMain.on('ball:drag-start', () => startDrag());
   ipcMain.on('ball:drag-alive', () => dragAlive());
   ipcMain.handle('ball:drag-end', () => endDrag(true));
+  // 改显示缩放时 Windows 只保住窗口的物理尺寸：150% 下 84px 高的球窗，切到 200% 就成了
+  // 42px 的 CSS 视口，而球还是 56 CSS 像素，右边和下边直接被裁掉一块（实测）。
+  // 光把尺寸写回去也不够：225%→100% 之后 setContentBounds(56) 实测留下 56x63 的视口，
+  // 因为 Windows 还攥着旧的物理高度。只有按新缩放重建窗口，才等于「刚开机就是这个缩放」。
+  // 位置用系统换算过的当前 DIP，所以球不会跳回原位也不会跑到屏外；拖动中不抢，等松手。
+  let remetric = null;
+  const rebuild = () => {
+    remetric = null;
+    if (!win || win.isDestroyed()) return;
+    if (drag) {
+      remetric = setTimeout(rebuild, 600); // 正拖着，等这趟结束再说
+      return;
+    }
+    const [x, y] = win.getPosition(); // 已经是新缩放下的 DIP
+    destroy();
+    create({ x, y });
+  };
+  screen.on('display-metrics-changed', () => {
+    clearTimeout(remetric); // 一次缩放变更会连发好几个事件，等它彻底停下再重建
+    remetric = setTimeout(rebuild, 600);
+  });
 }
 
 function sync() {
