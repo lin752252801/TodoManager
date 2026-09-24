@@ -9,7 +9,7 @@ function paintPct(pct) {
   lastPct = pct;
   pctEl.classList.remove('done');
   capEl.textContent = '';
-  pctEl.textContent = pct + '%';
+  pctEl.textContent = pct.toFixed(1) + '%';
 }
 
 function showResult(mb) {
@@ -23,13 +23,16 @@ function showResult(mb) {
     pctEl.textContent = '已整理';
   }
   holdTimer = setTimeout(() => {
+    // 必须把它清空：apply() 拿 holdTimer 当「结果展示中」的开关，
+    // 不清空的话清理过一次之后占用就永远不再刷新到球上
+    holdTimer = null;
     if (lastPct != null) paintPct(lastPct);
   }, 2600);
 }
 
 function apply(u) {
   if (!u || !Number.isFinite(u.pct)) return;
-  // 清理结果要在球上停一会儿，别让 2 秒一次的占用轮询把它冲掉
+  // 清理结果要在球上停一会儿，别让一秒一次的占用轮询把它冲掉
   if (holdTimer) {
     lastPct = u.pct;
     return;
@@ -40,26 +43,16 @@ function apply(u) {
 ball.onUsage(apply);
 ball.usage().then(apply);
 
-let start = null;
-let last = null;
-let dragging = false;
+// 拖动只报「从哪儿抓的」和「松手了」，挪窗口的事交给主进程按全局光标位置驱动：
+// 球只有 56px，靠页面里的 mousemove 增量挪，鼠标一快就脱手，长按状态还会永远卡住。
+// 所以按下当场就把主进程挂上，是否真拖过由主进程回答（它才看得到全局光标）。
+let down = null;
 
 el.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
-  start = { x: e.screenX, y: e.screenY };
-  last = start;
-  dragging = false;
+  down = true;
   el.setPointerCapture(e.pointerId);
-});
-
-el.addEventListener('pointermove', (e) => {
-  if (!start) return;
-  if (!dragging && Math.abs(e.screenX - start.x) + Math.abs(e.screenY - start.y) > 5) dragging = true;
-  if (!dragging) return;
-  const dx = e.screenX - last.x;
-  const dy = e.screenY - last.y;
-  last = { x: e.screenX, y: e.screenY };
-  if (dx || dy) ball.move(dx, dy);
+  ball.dragStart(e.clientX, e.clientY, e.screenX, e.screenY);
 });
 
 let busy = false;
@@ -77,16 +70,14 @@ async function clean() {
   }
 }
 
-function up() {
-  if (!start) return;
-  const wasDrag = dragging;
-  start = null;
-  dragging = false;
-  if (!wasDrag) clean();
+async function up() {
+  if (!down) return;
+  down = null;
+  if (!(await ball.dragEnd())) clean();
 }
 
 el.addEventListener('pointerup', up);
 el.addEventListener('pointercancel', () => {
-  start = null;
-  dragging = false;
+  down = null;
+  ball.dragEnd();
 });

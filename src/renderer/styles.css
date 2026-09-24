@@ -1184,8 +1184,9 @@ svg {
   box-shadow: 0 4px 14px -4px var(--teal);
 }
 
-/* 设置页不收输入：添加条藏掉只留导航，滚动区也跟着省出高度 */
-body.showing-settings .add {
+/* 设置页和已完成不收输入条：只留底部导航，省出的高度归列表 */
+body.showing-settings .add,
+body.tab-done .add {
   display: none;
 }
 
@@ -2051,6 +2052,15 @@ body.w-narrow .time-btn {
 
 body.w-narrow .list {
   padding-bottom: 142px;
+}
+
+/* 已完成没有输入条，把它原来占的 56px 收回来让给列表 */
+body.tab-done .list {
+  padding-bottom: 94px;
+}
+
+body.w-narrow.tab-done .list {
+  padding-bottom: 86px;
 }
 
 body.w-wide .date {

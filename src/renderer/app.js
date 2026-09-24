@@ -802,6 +802,8 @@ function render() {
   const none = items.length === 0;
   emptyEl.hidden = !none;
   if (none) emptyEl.textContent = state.tab === 'done' ? '还没有已完成的任务' : '暂无待办，先添加一条';
+  // 已完成只用来查看，新任务从「待办」加，所以这一栏不需要输入框，把高度让给列表
+  document.body.classList.toggle('tab-done', state.tab === 'done');
   growAll();
   $$('.card', listEl).forEach((card) => {
     const t = find(card.dataset.id);
