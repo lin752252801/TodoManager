@@ -252,8 +252,8 @@ svg {
 
 .date {
   min-width: 0;
-  font-size: 21px;
-  font-weight: 650;
+  font-size: 25px;
+  font-weight: 700;
   letter-spacing: 0.2px;
   overflow: hidden;
   white-space: nowrap;
@@ -262,7 +262,7 @@ svg {
 
 .date em {
   font-style: normal;
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 400;
   color: var(--txt3);
   margin-left: 7px;
@@ -2037,10 +2037,6 @@ body.w-narrow {
   font-size: 13px;
 }
 
-body.w-narrow .date {
-  font-size: 19px;
-}
-
 body.w-narrow .head {
   gap: 9px;
   padding: 11px 10px 11px 15px;
@@ -2084,7 +2080,7 @@ body.w-narrow.tab-done .list {
 }
 
 body.w-wide .date {
-  font-size: 23px;
+  font-size: 27px;
 }
 
 body.w-wide .n1 {
