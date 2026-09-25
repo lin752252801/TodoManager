@@ -58,7 +58,25 @@ class SnapController {
     this.onMetrics = () => this.reconcileDisplays();
     screen.on('display-metrics-changed', this.onMetrics);
 
+    // 窗口收进托盘时停表：不可见状态下 tick 本来就什么都不做，留着只是每秒白醒 42 次。
+    // 显示时重新起表，免得「最小化事件被系统吞掉、靠轮询兜底恢复」这条退路失效。
+    this.onShow = () => this.startTimer();
+    this.onHide = () => this.stopTimer();
+    win.on('show', this.onShow);
+    win.on('hide', this.onHide);
+    this.startTimer();
+  }
+
+  startTimer() {
+    if (this.timer) return;
+    this.tick();
     this.timer = setInterval(() => this.tick(), POLL_MS);
+  }
+
+  stopTimer() {
+    if (!this.timer) return;
+    clearInterval(this.timer);
+    this.timer = null;
   }
 
   unminimize() {
@@ -89,11 +107,13 @@ class SnapController {
   }
 
   dispose() {
-    clearInterval(this.timer);
+    this.stopTimer();
     this.stopAnim();
     this.win.removeListener('move', this.onMove);
     this.win.removeListener('resize', this.onResize);
     this.win.removeListener('minimize', this.onMinimize);
+    this.win.removeListener('show', this.onShow);
+    this.win.removeListener('hide', this.onHide);
     screen.removeListener('display-metrics-changed', this.onMetrics);
   }
 
@@ -125,6 +145,22 @@ class SnapController {
         this.syncNormalAfterResize(b);
         return;
       }
+      // 缩放不算「用户移动了窗口」：这里绝不置 lastUserMove，吸附判定只认拖动。
+      //
+      // 改之前这里会落到下面那行 lastUserMove = now，于是拖边缘也会触发吸附判定：
+      //   拖下边缘把窗口拉高 —— 高度涨到工作区高度时 main.js 的 clamp 会把 y 顶到 wa.y，
+      //   吸附判定看到 topGap = 0，误判成「用户把窗口拖到顶边」，窗口当场收成一条边；
+      //   拖左/上边缘一直拉到贴边，同理也被吸走。
+      // 顺手清零：拖动之后 180ms 内接着去拖手柄的话，那笔旧的 lastUserMove 会在
+      // 缩放停稳后补跑一次吸附判定，等于漏网。
+      //
+      // 取舍：拖边缘把窗口拉到贴边不再吸附，要吸附得拖标题栏（这是有意的）。
+      // tick() 的自由态分支靠 `!this.lastUserMove` 就返回了，所以越界兜底
+      // （ensureVisible）也不再在缩放后跑 —— 安全：resizeTo 已经夹过一遍，
+      // 系统原生边框缩放又受鼠标位置限制，都推不出工作区。
+      this.lastUserMove = 0;
+      this.pending = null;
+      return;
     }
     this.lastUserMove = now;
     this.pending = null;
@@ -349,8 +385,6 @@ class SnapController {
       this.topSeen = now;
       this.verifyTopmost();
     }
-    const cursor = screen.getCursorScreenPoint();
-    const wa = this.workArea();
     const resizing = this.inResize(now);
 
     if (this.normalDirty && !resizing) {
@@ -359,19 +393,30 @@ class SnapController {
     }
 
     if (this.mode === 'free') {
+      // 自由状态只有「刚拖完、等它停稳」这一种情况需要动窗口，而它只用到工作区和窗口矩形，
+      // 用不到光标。以前这里无条件先取一次全局光标，等于窗口摆在桌面中间不动，
+      // 软件也以 42Hz 的频率向系统要坐标，7×24 小时。
+      // `!this.lastUserMove` 这一条同时兜住了「只是缩放过」：handleUserMove 只在拖动时
+      // 才置 lastUserMove，所以拖完手柄停稳后这里会直接返回，不会再跑吸附判定。
       if (resizing) return;
       if (
-        this.lastUserMove &&
-        now - this.lastUserMove > DRAG_SETTLE_MS &&
-        now - this.lastBoundsChange > DRAG_SETTLE_MS
+        !this.lastUserMove ||
+        now - this.lastUserMove <= DRAG_SETTLE_MS ||
+        now - this.lastBoundsChange <= DRAG_SETTLE_MS
       ) {
-        this.lastUserMove = 0;
-        const b = this.win.getBounds();
-        if (this.evaluateSnap(b, wa)) return;
-        this.ensureVisible(b, wa);
+        return;
       }
+      this.lastUserMove = 0;
+      const wa = this.workArea();
+      const b = this.win.getBounds();
+      if (this.evaluateSnap(b, wa)) return;
+      this.ensureVisible(b, wa);
       return;
     }
+
+    // 只有收起态 / 展开态的命中判定才真的要用光标，到这里才取
+    const cursor = screen.getCursorScreenPoint();
+    const wa = this.workArea();
 
     // 缩放进行中（含松手后的短暂静止）一律不动窗口：按住左键停在最小尺寸时鼠标早已离开
     // 窗口，此时收起会在用户手里把窗口缩回去
@@ -437,4 +482,4 @@ class SnapController {
   }
 }
 
-module.exports = { SnapController, SLIVER, TRIGGER };
+module.exports = { SnapController };

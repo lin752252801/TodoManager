@@ -29,6 +29,10 @@ let handEnded = false;
 // 也不会多吞一下点击（光标在圈内、窗口外时窗口根本收不到事件），换来的只是提前量。
 const ARM_R = 400;
 const HIT_POLL_MS = 8; // 一次按下只有几十毫秒，轮询慢了就等于漏按；拖动跟手也是这个间隔
+// 光标在感应圈外、而且一直没动时，没必要维持 125Hz，降到这个间隔能省掉大半后台唤醒。
+// 安全性靠两条：① 光标只要动过就立刻切回快档；② 静止在远处时鼠标不可能瞬移，
+// 任何一次移动都会在下一个慢档周期内被看见，那时距窗口至少还有 300 多像素，来得及收回穿透。
+const FAR_POLL_MS = 24;
 const DRAG_SLOP = 6; // 按下后先移动这么几个像素才算真拖，避免手抖把球挪走
 const DRAG_STUCK_MS = 2500; // 渲染层这么久没有任何回报才兜底放手，正常拖动一直在报
 
@@ -42,12 +46,25 @@ function inWindow(p, b) {
   return p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height;
 }
 
-function tick() {
+let lastCursor = null;
+
+// 自排队的 setTimeout 而不是 setInterval：轮询间隔要随光标状态在快慢两档之间切换。
+function scheduleHit(delay) {
+  clearTimeout(hitTimer);
+  hitTimer = setTimeout(hit, delay);
+}
+
+function hit() {
+  hitTimer = null;
   if (!win || win.isDestroyed()) return;
   const b = win.getBounds();
   const p = screen.getCursorScreenPoint();
-  if (drag) return dragTick(b, p);
+  // 光标动过就一直用快档：既要拖动跟手，也要在快速扫过来时来得及把穿透收回来
+  const moved = !lastCursor || lastCursor.x !== p.x || lastCursor.y !== p.y;
+  lastCursor = p;
   const d = Math.hypot(p.x - (b.x + b.width / 2), p.y - (b.y + b.height / 2));
+  scheduleHit(d <= ARM_R || moved || drag ? HIT_POLL_MS : FAR_POLL_MS);
+  if (drag) return dragTick(b, p);
   setInteractive(d <= ARM_R);
 }
 
@@ -263,14 +280,15 @@ function create(at) {
   });
   clearInterval(poll);
   poll = setInterval(pushUsage, 1000);
-  clearInterval(hitTimer);
-  hitTimer = setInterval(tick, HIT_POLL_MS);
+  clearTimeout(hitTimer);
+  lastCursor = null; // 首帧当作「动过」，先跑一轮快档
+  scheduleHit(HIT_POLL_MS);
 }
 
 function destroy() {
   clearInterval(poll);
   poll = null;
-  clearInterval(hitTimer);
+  clearTimeout(hitTimer);
   hitTimer = null;
   endDrag();
   if (win && !win.isDestroyed()) win.destroy();
@@ -332,4 +350,4 @@ function sync() {
   else destroy();
 }
 
-module.exports = { register, sync, destroy, usage };
+module.exports = { register, sync, destroy };

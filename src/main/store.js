@@ -19,12 +19,37 @@ const DEFAULT_SETTINGS = {
   expandDelayMs: 120
 };
 
+// 本次启动时发现的数据文件问题（读不出来、已备份到哪），供界面提示用。
+// 不提示的话用户只会看到「待办全没了」，第一反应是自己误删。
+const loadWarnings = [];
+
 function readJson(file, fallback) {
   try {
     const raw = fs.readFileSync(file, 'utf8');
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? parsed : fallback;
-  } catch {
+  } catch (err) {
+    // 解析失败一律当「没有数据」启动，但绝不能把原件就这么留在原地：
+    // 随后任意一次 setTasks（新增一条就够了）都会把空列表写回同一个文件，
+    // 用户的任务就彻底没了，而且全程无感知。先把原件挪成 *.corrupt-<时间戳> 再退回默认值。
+    // 用 rename 而不是 copy：原件挪走后构造函数会建一份干净的，下次启动不再重复备份、也不再重复报警。
+    if (fs.existsSync(file)) {
+      const bak = `${file}.corrupt-${Date.now()}`;
+      let backup = null;
+      try {
+        fs.renameSync(file, bak);
+        backup = bak;
+      } catch (renameErr) {
+        // 文件被同步盘 / 杀软锁住时改名会失败，退回复制，至少把内容留下来
+        try {
+          fs.copyFileSync(file, bak);
+          backup = bak;
+        } catch (copyErr) {
+          console.error('[store] 数据文件读不出来，且备份失败', file, err, renameErr, copyErr);
+        }
+      }
+      loadWarnings.push({ file, backup, reason: String((err && err.message) || err) });
+    }
     return fallback;
   }
 }
@@ -64,6 +89,11 @@ class Store {
 
   getTasks() {
     return this.tasks;
+  }
+
+  // 启动时数据文件读不出来（已自动备份）的记录，界面拿它提示用户
+  getLoadWarnings() {
+    return loadWarnings;
   }
 
   setTasks(tasks) {

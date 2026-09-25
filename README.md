@@ -92,9 +92,13 @@ TodoManager/
 
 ```bash
 npm install
-npm run dev     # 开发运行
-npm run ship    # 打包成绿色目录 dist/TodoManager
+npm start           # 开发运行
+npm run build:dir   # 只打包，产物在 dist/win-unpacked
+npm run ship        # 打包并同步成绿色目录 dist/TodoManager
 ```
+
+打包就是普通的 `electron-builder --win --dir`，`ship` 只是多跑一步 `scripts/sync-green.js`
+把中间产物同步成绿色目录 `dist/TodoManager`（同步时跳过 `config` / `data`，不会覆盖你的数据）。
 
 技术栈就一个 Electron，界面是原生 HTML / CSS / JS，没有前端框架、没有构建步骤、没有后端。
 

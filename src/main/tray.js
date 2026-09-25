@@ -62,4 +62,4 @@ function destroyTray() {
   }
 }
 
-module.exports = { createTray, destroyTray, sendToWindow };
+module.exports = { createTray, destroyTray };

@@ -3,7 +3,7 @@ const path = require('path');
 const store = require('./store');
 const paths = require('./paths');
 const { SnapController } = require('./snap');
-const { createTray } = require('./tray');
+const { createTray, destroyTray } = require('./tray');
 const autostart = require('./autostart');
 const remind = require('./remind');
 const ball = require('./ball');
@@ -150,14 +150,53 @@ function showWindow() {
   win.focus();
 }
 
-// 渲染层自绘手柄驱动的缩放
-function resizeTo(b) {
+// 渲染层自绘手柄驱动的缩放。
+//
+// dir 必须一起传进来（'n'/'s'/'w'/'e' 或其组合，取自手柄的 data-dir）。
+// 只给一个矩形的话，一旦窗口原点被工作区顶回去，就分不清「用户正把这条边往外推」
+// 和「对面那条边该不该跟着动」，只能按原点整体夹取 —— 于是拖左/上边缘一直推到贴边时，
+// 对面那条边会被一起拖走：顶边钉在 0、高度却按「原始 y + 原始高度」继续长，下边缘就往下滑；
+// 鼠标在边界上小幅来回时，对面那条边跟着来回动（实测：自由态窗口 y=40 往上拖，
+// 顶边到 0 之后下边缘继续从 750 涨到 758；顶边吸附的窗口拖上边缘，高度 620→628）。
+// 拖右/下边缘不会这样，因为那条路径不夹原点。
+//
+// 正确做法：只夹用户正拖的那条边，对面那条边原地不动 —— 手感和拖右边缘一致。
+function resizeTo(b, dir) {
   if (!win || win.isDestroyed() || !b) return;
   // 注意：这里不能调 win.getMinWidth()/getMinHeight()，在 IPC 回调里会卡死主线程
   const wa = screen.getDisplayMatching(win.getBounds()).workArea;
-  const width = Math.max(MIN_W, Math.min(Math.round(b.width || 0), wa.width));
-  const height = Math.max(MIN_H, Math.min(Math.round(b.height || 0), wa.height));
-  win.setBounds(snap.clamp({ x: Math.round(b.x || 0), y: Math.round(b.y || 0), width, height }, wa));
+  const d = typeof dir === 'string' ? dir : '';
+  let x = Math.round(b.x || 0);
+  let y = Math.round(b.y || 0);
+  let width = Math.round(b.width || 0);
+  let height = Math.round(b.height || 0);
+
+  if (!d) {
+    // 拿不到方向（老渲染层 / 异常路径）时退回整体夹取，保证窗口一定落在工作区里
+    const c = snap.clamp({ x, y, width, height }, wa);
+    win.setBounds({ x: c.x, y: c.y, width: Math.max(MIN_W, c.width), height: Math.max(MIN_H, c.height) });
+    return;
+  }
+
+  if (d.includes('w')) {
+    // 右边缘是锚点：先记下来再夹 x，宽度由「右边缘 − 夹过的 x」反推，
+    // 而不是先夹 x 再原样保留宽度（那样右边缘会被一起拖走）
+    const right = x + width;
+    x = Math.max(wa.x, x);
+    width = Math.min(Math.max(right - x, MIN_W), wa.width);
+  } else if (d.includes('e')) {
+    width = Math.min(Math.max(width, MIN_W), wa.x + wa.width - x);
+  }
+  if (d.includes('n')) {
+    const bottom = y + height;
+    y = Math.max(wa.y, y);
+    height = Math.min(Math.max(bottom - y, MIN_H), wa.height);
+  } else if (d.includes('s')) {
+    height = Math.min(Math.max(height, MIN_H), wa.y + wa.height - y);
+  }
+  // 没被拖的那一维整份照抄：它来自渲染层按下时冻结的窗口矩形，本来就在工作区内，
+  // 再夹一次只会把对面那条边推走 —— 这正是这个 bug 的成因。
+  win.setBounds({ x, y, width, height });
 }
 
 function applyOpacity(v) {
@@ -171,7 +210,13 @@ function applyOpacity(v) {
 function registerIpc() {
   ipcMain.handle('tasks:get', () => store.getTasks());
   ipcMain.handle('tasks:set', (_e, tasks) => {
-    store.setTasks(Array.isArray(tasks) ? tasks : []);
+    const list = Array.isArray(tasks) ? tasks : [];
+    // 渲染层手里那份是启动时结构化克隆出来的副本，不含主进程打过的 overdueAcked。
+    // 整份替换会把「逾期只提醒一次」的标记抹掉，所以按 id 把主进程已有的标记并回来，
+    // 堵住「ack 刚广播出去、渲染层上一笔整份写回还在路上」这个在途窗口。
+    const acked = new Set(store.getTasks().filter((t) => t && t.overdueAcked).map((t) => t.id));
+    if (acked.size) for (const t of list) if (t && acked.has(t.id)) t.overdueAcked = true;
+    store.setTasks(list);
     return store.getTasks();
   });
   ipcMain.handle('settings:get', () => ({
@@ -179,6 +224,8 @@ function registerIpc() {
     autoStart: autostart.isEnabled(),
     dataDir: paths.dataDir,
     configDir: paths.configDir,
+    // 启动时发现数据文件损坏（已自动备份）时，界面要能提示一句
+    loadWarnings: store.getLoadWarnings(),
     version: app.getVersion()
   }));
   ipcMain.handle('settings:patch', (_e, patch) => {
@@ -188,8 +235,9 @@ function registerIpc() {
     return { ...store.getSettings(), autoStart: autostart.isEnabled() };
   });
   ipcMain.handle('snap:state', () => snap.state());
-  ipcMain.handle('win:bounds', () => win.getBounds());
-  ipcMain.on('win:resize-to', (_e, b) => resizeTo(b));
+  // win 在 closed 之后是 null，退出流程里渲染层若正好取一次 bounds 会抛未捕获异常
+  ipcMain.handle('win:bounds', () => (win && !win.isDestroyed() ? win.getBounds() : null));
+  ipcMain.on('win:resize-to', (_e, b, dir) => resizeTo(b, dir));
   ipcMain.on('win:resize-state', (_e, on) => {
     if (snap) snap.setResizing(on);
   });
@@ -212,5 +260,7 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   quitting = true;
   if (snap) snap.dispose();
+  // 托盘图标不会随窗口一起消失：不显式销毁，通知区域会留一个点不动的僵尸图标
+  destroyTray();
   store.flush();
 });

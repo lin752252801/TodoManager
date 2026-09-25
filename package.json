@@ -1,16 +1,14 @@
 {
   "name": "todo-manager",
-  "version": "2.0.7",
-  "description": "待办事项管理 - 支持边缘吸附的 Windows 桌面待办软件",
+  "version": "2.0.9",
+  "description": "TodoManager",
   "main": "src/main/main.js",
   "author": "Ekko",
   "license": "MIT",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dev": "set ELECTRON_DEV=1&& electron .",
     "build:dir": "electron-builder --win --dir",
-    "dist": "electron-builder --win --dir",
     "ship": "electron-builder --win --dir && node scripts/sync-green.js"
   },
   "devDependencies": {
@@ -24,10 +22,6 @@
       "output": "dist",
       "buildResources": "build"
     },
-    "electronLanguages": [
-      "zh-CN",
-      "en-US"
-    ],
     "files": [
       "src/**/*",
       "resources/**/*",
@@ -36,12 +30,15 @@
     "asarUnpack": [
       "resources/**/*"
     ],
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
     "win": {
       "target": [
         "dir"
       ],
-      "icon": "build/icon.ico",
-      "signAndEditExecutable": false
+      "icon": "build/icon.ico"
     }
   }
 }

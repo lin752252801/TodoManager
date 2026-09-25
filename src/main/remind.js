@@ -166,11 +166,21 @@ function next() {
   openWindow(payloadOf(item, queue.length));
 }
 
+// 主进程把「已确认」写进内存，并立刻广播给渲染层。
+// 不广播的话渲染层手里那份副本永远不含 overdueAcked，它之后随便一次 persist()
+// （新增 / 完成 / 删除任意一条）都会把整份旧数组发回来，标记当场被抹掉，
+// 用户下次开机又会被同一条逾期任务打扰一次。
+function broadcastTasks() {
+  const win = getMain();
+  if (win && !win.isDestroyed()) win.webContents.send('tasks:changed', store.getTasks());
+}
+
 function ack(item) {
   const t = store.getTasks().find((x) => x.id === item.task.id);
   if (!t) return;
   t.overdueAcked = true;
   store.setTasks(store.getTasks());
+  broadcastTasks();
 }
 
 function answer(action) {

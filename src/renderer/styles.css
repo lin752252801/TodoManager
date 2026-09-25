@@ -1326,6 +1326,21 @@ body.tab-done .add {
   color: var(--danger);
 }
 
+/* 数据文件读不出来时的顶部提示条。放在 .top 之前，不占窗口拖拽区 */
+.banner {
+  flex: 0 0 auto;
+  margin: 12px var(--pad) 0;
+  padding: 9px 11px;
+  border: 1px solid var(--warn-brd);
+  border-radius: 12px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 10.5px;
+  line-height: 1.65;
+  word-break: break-all;
+  user-select: text;
+}
+
 .pathbox {
   display: grid;
   gap: 5px;
@@ -1633,9 +1648,14 @@ body.snap-top .grip-bottom i:nth-child(3) {
   cursor: nesw-resize;
 }
 
+/* 右下角必须写 bottom。写成 top 会和 .rsz-ne 的 20×20 矩形完全重叠，
+   同 z-index 下后绘制的 .rsz-se 吃掉右上角：右上角变成 nwse 光标且去改右下角，
+   右下角反而一个热区都没有。
+   注意最外侧 4–5px 是 Windows 原生缩放宽边，它盖在这层之上，所以贴边拖是正常的，
+   只有往角内侧 6–19px 才摸得到这里——排查时别被它骗了。 */
 .rsz-se {
   right: 0;
-  top: 0;
+  bottom: 0;
   cursor: nwse-resize;
 }
 

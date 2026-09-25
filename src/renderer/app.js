@@ -814,8 +814,16 @@ function render() {
   listEl.scrollTop = scroll;
 }
 
-function persist() {
-  bridge.setTasks(state.tasks);
+let persistSeq = 0;
+
+// 主进程可能在这次往返期间给任务打了 overdueAcked（逾期提醒点过「确定」），
+// 所以拿它的返回值把本地副本对齐一次，不然本地那份永远缺这个字段。
+// 只有最后一次请求的结果才算数：连点两下时先发的响应回来得更早，
+// 无条件覆盖会把后发（更新）的状态顶掉。
+async function persist() {
+  const seq = ++persistSeq;
+  const saved = await bridge.setTasks(state.tasks);
+  if (seq === persistSeq && Array.isArray(saved)) state.tasks = saved;
 }
 
 function patchSetting(partial) {
@@ -895,6 +903,25 @@ function applySnap(st) {
   const label = st.mode === 'free' ? '未吸附' : '已吸附：' + (sideName[st.side] || '屏幕边缘');
   const el = $('#set-snap');
   if (el) el.textContent = label;
+}
+
+// 数据文件读不出来时主进程已经自动把原件备份走了，但界面如果一声不吭，
+// 用户只会看到「待办全没了」，多半以为是自己误删。所以顶部留一条说明。
+function paintDataWarn(list) {
+  const el = $('#data-warn');
+  if (!el) return;
+  if (!Array.isArray(list) || !list.length) {
+    el.hidden = true;
+    return;
+  }
+  const base = (p) => String(p).split(/[\\/]/).pop();
+  const parts = list.map((w) =>
+    w.backup
+      ? `${base(w.file)} 读不出来，原件已备份为 ${base(w.backup)}`
+      : `${base(w.file)} 读不出来，且备份失败，请先手动复制一份再继续`
+  );
+  el.textContent = `数据文件有问题：${parts.join('；')}。本次以默认内容启动，请核对后再继续使用。`;
+  el.hidden = false;
 }
 
 function tierOf() {
@@ -1084,6 +1111,9 @@ function resizeBounds(b, dir, dx, dy) {
 }
 
 let rz = null;
+// 「按下已经发出、getBounds() 还没回来」这段窗口期里，正被按住的那个手柄。
+// 它同时充当两个角色：这一趟是否还有效的令牌，以及松手时要清掉高亮的那个元素。
+let rzPendingEl = null;
 let rzFrame = 0;
 let rzDelta = null;
 
@@ -1092,43 +1122,71 @@ function rzFlush() {
   if (!rz || !rzDelta) return;
   // 顺手续租：万一 pointerup 丢在窗口外，主进程也只按「最后一次动静」计时，不会长期冻住收起
   bridge.resizeState(true);
-  bridge.resizeTo(resizeBounds(rz.b, rz.dir, rzDelta.dx, rzDelta.dy));
+  // dir 一并交给主进程：贴边夹取时它必须知道用户拖的是哪条边，
+  // 否则只能按原点整体夹，拖左/上边缘拉到贴边会把对面那条边一起拖走。
+  bridge.resizeTo(resizeBounds(rz.b, rz.dir, rzDelta.dx, rzDelta.dy), rz.dir);
   rzDelta = null;
 }
 
+// 收尾必须能处理「rz 还没赋值」的情况：原来这里第一句就是 if (!rz) return，
+// 于是松手早于 getBounds 兑现时，is-active 高亮和 body.resizing 全都没被清掉。
+function endResize() {
+  bridge.resizeState(false);
+  cancelAnimationFrame(rzFrame);
+  rzFrame = 0;
+  rzDelta = null;
+  if (rzPendingEl) {
+    rzPendingEl.classList.remove('is-active');
+    rzPendingEl = null;
+  }
+  if (rz) {
+    rz.el.classList.remove('is-active');
+    rz = null;
+  }
+  document.body.classList.remove('resizing');
+}
+
+// 缩放的起点和增量一律用屏幕坐标（screenX/screenY），不能用 clientX/clientY。
+// clientX 是相对客户区的：拖右/下边缘时窗口原点不动，鼠标走 1px 增量也是 1px，看着没问题；
+// 但拖左/上边缘时窗口自己也在朝鼠标方向移动，客户区坐标系跟着平移，增量只剩
+// 「鼠标位移 − 窗口位移」，成了负反馈，永远追不上（实测跟随率：右边 100%、下边 100%、
+// 左边 80%、上边 60%、左上角只剩 40%；手感就是「从左边/上边拉窗口黏手、拉不快」）。
+// 起点和增量必须用同一套坐标系，只改一处会比现在更糟。
 $$('.rsz').forEach((el) => {
   el.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || rz) return;
     e.preventDefault();
     // 先告诉主进程「我在缩放」，吸附状态期间不要碰窗口
     bridge.resizeState(true);
-    // 捕获只是锦上添花：move/up 一律挂在 window 上，丢捕获也不会漏
+    // 捕获只是锦上添花：move/up 一律挂在 window 上，丢捕获也不会漏。
+    // 必须 once —— 这个监听原来是在每次 pointerdown 里新加的、从不移除，
+    // 而 endResize 每次都会发一条 resizeState(false) 的 IPC，拖过 N 次之后
+    // 每次松手就会发 N 条。长驻软件里会一直涨。
     if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
-    el.addEventListener('lostpointercapture', endResize);
+    el.addEventListener('lostpointercapture', endResize, { once: true });
     el.classList.add('is-active');
-    const x0 = e.clientX;
-    const y0 = e.clientY;
+    rzPendingEl = el;
+    const x0 = e.screenX;
+    const y0 = e.screenY;
+    // getBounds() 是一次 IPC 往返（实测 p50 0.3ms、p99 1.4ms）。这期间用户要是已经松手，
+    // pointerup 会先跑 endResize 把这一趟作废；晚到的 promise 再把 rz 和 body.resizing 补上，
+    // 就成了「不按鼠标移动指针也在改窗口大小」。所以兑现时先核对令牌，作废的直接丢弃。
     bridge.getBounds().then((b) => {
+      if (rzPendingEl !== el) return;
+      rzPendingEl = null;
+      if (!b) return bridge.resizeState(false);
       rz = { el, dir: el.dataset.dir, b, x0, y0 };
       document.body.classList.add('resizing');
     });
   });
 });
 
-function endResize() {
-  bridge.resizeState(false);
-  if (!rz) return;
-  cancelAnimationFrame(rzFrame);
-  rzFrame = 0;
-  rzDelta = null;
-  rz.el.classList.remove('is-active');
-  rz = null;
-  document.body.classList.remove('resizing');
-}
-
 window.addEventListener('pointermove', (e) => {
   if (!rz) return;
-  rzDelta = { dx: e.clientX - rz.x0, dy: e.clientY - rz.y0 };
+  // 兜底：只看 rz 的话，一旦 pointerup 整个丢了（丢在窗口外、被别的程序吃掉），
+  // 之后单纯移动指针就会一直改窗口大小。按键已经松开就直接收尾。
+  if (e.buttons === 0) return endResize();
+  rzDelta = { dx: e.screenX - rz.x0, dy: e.screenY - rz.y0 };
   if (!rzFrame) rzFrame = requestAnimationFrame(rzFlush);
 });
 window.addEventListener('pointerup', endResize);
@@ -1221,10 +1279,18 @@ async function boot() {
   $('#set-data').textContent = s.dataDir;
   $('#set-config').textContent = s.configDir;
   $('#set-version').textContent = 'V' + s.version;
+  paintDataWarn(s.loadWarnings);
   const pct = Math.round(Math.max(0.5, Math.min(1, Number(s.opacity) || 1)) * 100);
   opacityRange.value = String(pct);
   paintSlider(pct);
   bridge.onSnap(applySnap);
+  // 主进程独立改过任务数据（提醒弹窗点「确定」给逾期任务打了标记）时，把本地副本整个换掉。
+  // 正在编辑就不重绘，免得输入焦点和草稿被冲掉 —— 草稿是按 id 找任务的，换掉数组也不影响它。
+  bridge.onTasksChanged((tasks) => {
+    if (!Array.isArray(tasks)) return;
+    state.tasks = tasks;
+    if (!state.expandedId) render();
+  });
   bridge.onTray((kind) => {
     showView('tasks');
     if (kind === 'new') addInput.focus();
