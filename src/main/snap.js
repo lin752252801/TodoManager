@@ -139,28 +139,40 @@ class SnapController {
     const resized = !!prev && (prev.width !== b.width || prev.height !== b.height);
     if (resized) {
       this.lastResizeSeen = now;
-      // 吸附态被缩放：保持吸附只换展开尺寸。解除吸附会让窗口停在边缘却不再收起，
-      // 于是鼠标移出界面也收不回去，只能重新拖一次标题栏。
-      if (this.mode !== 'free') {
-        this.syncNormalAfterResize(b);
+      // 非 100% 缩放下，系统拖动窗口会让 DIP 尺寸自己抖 ±2px（150% 实测 712→710→714）。
+      // 「位置也在变 + 尺寸只抖一两像素」不是用户在拖手柄：按缩放处理会清掉 lastUserMove，
+      // 而自由态的吸附判定要求它非零，于是拖到边上再也不吸附，得再拖一两次、
+      // 撞上「尺寸刚好没变」的那一趟才行。缩放冷却（lastResizeSeen）照旧记，不放松。
+      const moved = !!prev && (prev.x !== b.x || prev.y !== b.y);
+      const jitter =
+        moved &&
+        !this.resizing &&
+        Math.abs(prev.width - b.width) <= 3 &&
+        Math.abs(prev.height - b.height) <= 3;
+      if (!jitter) {
+        // 吸附态被缩放：保持吸附只换展开尺寸。解除吸附会让窗口停在边缘却不再收起，
+        // 于是鼠标移出界面也收不回去，只能重新拖一次标题栏。
+        if (this.mode !== 'free') {
+          this.syncNormalAfterResize(b);
+          return;
+        }
+        // 缩放不算「用户移动了窗口」：这里绝不置 lastUserMove，吸附判定只认拖动。
+        //
+        // 改之前这里会落到下面那行 lastUserMove = now，于是拖边缘也会触发吸附判定：
+        //   拖下边缘把窗口拉高 —— 高度涨到工作区高度时 main.js 的 clamp 会把 y 顶到 wa.y，
+        //   吸附判定看到 topGap = 0，误判成「用户把窗口拖到顶边」，窗口当场收成一条边；
+        //   拖左/上边缘一直拉到贴边，同理也被吸走。
+        // 顺手清零：拖动之后 180ms 内接着去拖手柄的话，那笔旧的 lastUserMove 会在
+        // 缩放停稳后补跑一次吸附判定，等于漏网。
+        //
+        // 取舍：拖边缘把窗口拉到贴边不再吸附，要吸附得拖标题栏（这是有意的）。
+        // tick() 的自由态分支靠 `!this.lastUserMove` 就返回了，所以越界兜底
+        // （ensureVisible）也不再在缩放后跑 —— 安全：resizeTo 已经夹过一遍，
+        // 系统原生边框缩放又受鼠标位置限制，都推不出工作区。
+        this.lastUserMove = 0;
+        this.pending = null;
         return;
       }
-      // 缩放不算「用户移动了窗口」：这里绝不置 lastUserMove，吸附判定只认拖动。
-      //
-      // 改之前这里会落到下面那行 lastUserMove = now，于是拖边缘也会触发吸附判定：
-      //   拖下边缘把窗口拉高 —— 高度涨到工作区高度时 main.js 的 clamp 会把 y 顶到 wa.y，
-      //   吸附判定看到 topGap = 0，误判成「用户把窗口拖到顶边」，窗口当场收成一条边；
-      //   拖左/上边缘一直拉到贴边，同理也被吸走。
-      // 顺手清零：拖动之后 180ms 内接着去拖手柄的话，那笔旧的 lastUserMove 会在
-      // 缩放停稳后补跑一次吸附判定，等于漏网。
-      //
-      // 取舍：拖边缘把窗口拉到贴边不再吸附，要吸附得拖标题栏（这是有意的）。
-      // tick() 的自由态分支靠 `!this.lastUserMove` 就返回了，所以越界兜底
-      // （ensureVisible）也不再在缩放后跑 —— 安全：resizeTo 已经夹过一遍，
-      // 系统原生边框缩放又受鼠标位置限制，都推不出工作区。
-      this.lastUserMove = 0;
-      this.pending = null;
-      return;
     }
     this.lastUserMove = now;
     this.pending = null;
