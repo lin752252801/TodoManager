@@ -15,6 +15,14 @@ const LIST_ROW_H = 52; // 一行任务（名称 + 时间/状态）
 const LIST_GAP = 8;
 const LIST_MAX_H = 470; // 超过就内部滚动，别顶满屏幕
 
+// 详细内容最多摊开 3 行，再多就省略号：弹窗是来打断你的，不是来让你读文档的
+const DETAIL_MAX_LINES = 3;
+const DETAIL_LINE_H = 18;
+const DETAIL_GAP = 7;
+// 一行按 18 个汉字估：标签「详细内容：」自己占掉一截宽度，实测一行只装得下 19 个左右。
+// 宁可估多（卡片偏高一点），也不能估少 —— 估少了第三行会被窗口直接裁掉，连省略号都出不来
+const DETAIL_CHARS = 18;
+
 let getMain = () => null;
 let queue = [];
 let current = null;
@@ -69,6 +77,19 @@ function noteOf(item) {
     : remaining(item.days);
 }
 
+// 详情开头往往就是标题本身（新建时是从同一句话里截出来的），原样贴上去会把同一句念两遍，
+// 所以先折成一行、剥掉重复的标题前缀——和主列表 previewText 的差集规则保持一致
+function detailOf(t) {
+  let s = String(t.detail || '').replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  const title = String(t.title || '').trim();
+  if (title) {
+    if (s === title) return '';
+    if (s.startsWith(title)) s = s.slice(title.length).replace(/^[\s，,。.、；;：:！!？?]+/, '');
+  }
+  return s.trim();
+}
+
 function payloadOf(item, more) {
   const t = item.task;
   return {
@@ -76,6 +97,7 @@ function payloadOf(item, more) {
     overdue: item.overdue,
     sample: !!item.sample,
     title: t.title,
+    detail: detailOf(t),
     dueText: fmtDue(t),
     prio: PRIO_LABEL[t.priority] || '中',
     note: noteOf(item),
@@ -104,7 +126,10 @@ function area() {
 }
 
 function sizeOf(payload) {
-  if (!payload.list) return { w: CARD_W, h: CARD_H };
+  if (!payload.list) {
+    const lines = payload.detail ? Math.min(DETAIL_MAX_LINES, Math.max(1, Math.ceil([...payload.detail].length / DETAIL_CHARS))) : 0;
+    return { w: CARD_W, h: CARD_H + (lines ? DETAIL_GAP + lines * DETAIL_LINE_H : 0) };
+  }
   const n = payload.items.length;
   return { w: CARD_W, h: Math.min(LIST_MAX_H, LIST_BASE_H + n * LIST_ROW_H + (n - 1) * LIST_GAP) };
 }
@@ -132,6 +157,11 @@ function openWindow(payload) {
     hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, 'remind-preload.js'),
+      // 编码后再传：JSON 里的空格和引号会破坏渲染进程的命令行（实测直接导致 ERR_FAILED）
+      additionalArguments: [
+        '--remind-payload=' + encodeURIComponent(JSON.stringify(payload)),
+        '--remind-th=' + (store.getSettings().theme === 'dark' ? 'dark' : 'light')
+      ],
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -139,9 +169,7 @@ function openWindow(payload) {
     }
   });
   popup.setAlwaysOnTop(true, 'screen-saver');
-  popup.loadFile(path.join(__dirname, '..', 'renderer', 'remind.html'), {
-    query: { p: JSON.stringify(payload), th: store.getSettings().theme === 'dark' ? 'dark' : 'light' }
-  });
+  popup.loadFile(path.join(__dirname, '..', 'renderer', 'remind.html'));
   popup.once('ready-to-show', () => popup.show());
   // 用户直接关掉窗口（Alt+F4）也算「稍后」，队列要继续走
   popup.on('closed', () => {
@@ -222,7 +250,20 @@ function test(mode) {
     openWindow(listPayload(items));
     return;
   }
-  current = { task: { id: '__sample__', title: '整理月度工作报表', due: now - 2 * DAY, dueAllDay: false, priority: 'high' }, overdue: true, days: 0, sample: true };
+  current = {
+    task: {
+      id: '__sample__',
+      title: '整理月度工作报表',
+      // 开头故意重复一遍标题：预览里正好能看到「差集」生效，不会把同一句话念两遍
+      detail: '整理月度工作报表：1、汇总本周销量与回款；2、核对 9 月发票缺口；3、周五下午三点前发给王总。',
+      due: now - 2 * DAY,
+      dueAllDay: false,
+      priority: 'high'
+    },
+    overdue: true,
+    days: 0,
+    sample: true
+  };
   openWindow(payloadOf(current, 0));
 }
 

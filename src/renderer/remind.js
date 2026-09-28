@@ -1,4 +1,4 @@
-if (new URLSearchParams(location.search).get('th') === 'dark') document.body.classList.add('dark');
+if (window.remind && window.remind.theme() === 'dark') document.body.classList.add('dark');
 
 const p = (window.remind && window.remind.payload()) || null;
 
@@ -34,6 +34,9 @@ if (p && p.list) {
   setText('note', p.note ? `（${p.note}）` : '');
   setText('name', p.title);
   setText('more', p.more ? `还有 ${p.more} 项待提醒` : '');
+  // 没内容时整行收掉，不然只剩一个光秃秃的「详细内容：」标签
+  if (p.detail) document.getElementById('det').textContent = p.detail;
+  else document.getElementById('detline').style.display = 'none';
 }
 
 const later = () => window.remind.answer('later');

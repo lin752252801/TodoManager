@@ -199,6 +199,25 @@
         color: var(--txt);
       }
 
+      /* 详细内容要换行，所以整条覆盖掉上面那个「单行省略」的 .v；
+         最多 3 行，窗口高度是按 3 行给的，超出的部分收进省略号 */
+      .line.det {
+        align-items: flex-start;
+      }
+
+      .line.det .v {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 13px;
+        line-height: 18px;
+        color: var(--txt2);
+      }
+
       .stat {
         font-size: 12px;
         color: var(--txt4);
@@ -343,6 +362,7 @@
       <div class="body" id="body">
         <div class="line"><span class="k">截止时间：</span><span class="v" id="due"></span><span class="k" id="note"></span></div>
         <div class="line name"><span class="k">任务名称：</span><span class="v" id="name"></span></div>
+        <div class="line det" id="detline"><span class="k">详细内容：</span><span class="v" id="det"></span></div>
       </div>
       <div class="foot">
         <button class="btn ok" id="ok">确定</button>
