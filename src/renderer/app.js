@@ -101,6 +101,8 @@ function dueInfo(t) {
   const md = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const sameYear = d.getFullYear() === new Date(now).getFullYear();
   const dateStr = state.tier === 'narrow' || sameYear ? md : `${d.getFullYear()}-${md}`;
+  // 已经做完的事再挂红色「逾期 N 天」不合逻辑：什么时候完成的看完成时间，截止只剩历史意义
+  if (t.done) return { cls: 'ok', text: ms < now ? `${dateStr}${hm}` : `截止 ${dateStr}${hm}`, chip: '' };
   if (ms < now) return { cls: 'over', text: `${dateStr}${hm}`, chip: remainText(ms, now) };
   const days = Math.round((startOfDay(ms) - startOfDay(now)) / DAY);
   const rel = days <= 2 ? ['今天', '明天', '后天'][days] + hm : `${dateStr}${hm}`;
