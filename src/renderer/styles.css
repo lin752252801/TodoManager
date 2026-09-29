@@ -372,6 +372,16 @@ body.w-narrow .ai-pill {
   min-width: 0;
 }
 
+/* 显示 / 获取模型 / 测试连接 三个按钮一律等宽：
+   文字长短不一样会把左边缘错开，看着就是没对齐 */
+.btn-side {
+  flex: 0 0 78px;
+  min-width: 78px;
+  height: 30px;
+  padding: 0 4px;
+  text-align: center;
+}
+
 .hint {
   font-size: 11.5px;
   color: var(--txt4);
@@ -386,6 +396,11 @@ body.w-narrow .ai-pill {
   border: 1px solid var(--field-brd);
   border-radius: 10px;
   background: var(--pop-bg);
+}
+
+/* 服务商只有八项，给够高度一次看全，别让人在里面滚 */
+.ai-list.tall {
+  max-height: 252px;
 }
 
 .ai-list button {

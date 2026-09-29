@@ -1109,8 +1109,18 @@ function closeAiLists(except) {
 // 看着就像「列表显示不全」；等这一帧布局算完再滚到最近的可读位置
 function showAiList(sel) {
   const box = $(sel);
+  box.scrollTop = 0; // 上次滚到哪就停在哪儿，第一项会露半截
   box.hidden = false;
-  requestAnimationFrame(() => box.scrollIntoView({ block: 'nearest' }));
+  // 自己算差值滚，不用 scrollIntoView：非 100% 缩放下它会留 1px 贴在容器边线上，
+  // 而且它还会顺带把外层也滚一下
+  requestAnimationFrame(() => {
+    const host = box.closest('.list');
+    if (!host) return;
+    const hr = host.getBoundingClientRect();
+    const br = box.getBoundingClientRect();
+    if (br.bottom > hr.bottom) host.scrollTop += br.bottom - hr.bottom + 2;
+    else if (br.top < hr.top) host.scrollTop -= hr.top - br.top + 2;
+  });
 }
 
 $('#ai-head').addEventListener('change', (e) => patchAi({ aiSummary: e.target.checked }));
