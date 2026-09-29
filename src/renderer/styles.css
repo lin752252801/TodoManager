@@ -538,7 +538,7 @@ body.w-narrow .ai-pill {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  margin-right: 9px;
+  margin-right: 5px;
   margin-bottom: calc(var(--dock-h, 129px) + 8px);
   padding: 0 4px 14px var(--pad);
 }
