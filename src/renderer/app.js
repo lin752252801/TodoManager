@@ -1060,6 +1060,10 @@ function paintAi() {
   $('#set-ai').checked = aiState.on;
   $('#ai-pill').classList.toggle('on', aiState.on);
   $('#ai-provider').textContent = aiLabel();
+  // 添加框那行说明写死了「取开头一句做标题」，开关开着时这话就不成立了
+  addInput.placeholder = aiState.on
+    ? '输入内容，回车添加（AI 会把它整理成标题和详细内容）'
+    : '输入内容，回车添加（自动取开头一句做标题，全文存入详细内容）';
   const sum = $('#set-ai-sum');
   if (!aiState.on) sum.textContent = '未开启';
   else if (!aiState.baseUrl || !aiState.key || !aiState.model) sum.textContent = aiLabel() + ' · 还没填完';
@@ -1101,13 +1105,22 @@ function closeAiLists(except) {
   if (except !== 'model') $('#ai-model-list').hidden = true;
 }
 
+// 这两个列表是在设置那栏的滚动容器里撑开的，不滚一下经常开到视口外面，
+// 看着就像「列表显示不全」；等这一帧布局算完再滚到最近的可读位置
+function showAiList(sel) {
+  const box = $(sel);
+  box.hidden = false;
+  requestAnimationFrame(() => box.scrollIntoView({ block: 'nearest' }));
+}
+
 $('#ai-head').addEventListener('change', (e) => patchAi({ aiSummary: e.target.checked }));
 $('#set-ai').addEventListener('change', (e) => patchAi({ aiSummary: e.target.checked }));
 $('#ai-provider').addEventListener('click', (e) => {
   e.stopPropagation();
   const box = $('#ai-provider-list');
   closeAiLists('provider');
-  box.hidden = !box.hidden;
+  if (box.hidden) showAiList('#ai-provider-list');
+  else box.hidden = true;
 });
 $('#ai-provider-list').addEventListener('click', (e) => {
   const b = e.target.closest('button');
@@ -1144,7 +1157,7 @@ $('#ai-fetch').addEventListener('click', async () => {
   }
   hint.textContent = `取到 ${r.models.length} 个，点一下填进上面那格`;
   box.innerHTML = r.models.map((m) => `<button type="button" data-m="${esc(m)}" class="${m === aiState.model ? 'on' : ''}">${esc(m)}</button>`).join('');
-  box.hidden = false;
+  showAiList('#ai-model-list');
 });
 $('#ai-model-list').addEventListener('click', (e) => {
   const b = e.target.closest('button');

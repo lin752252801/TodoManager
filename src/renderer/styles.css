@@ -380,7 +380,7 @@ body.w-narrow .ai-pill {
 .ai-list {
   display: grid;
   gap: 2px;
-  max-height: 168px;
+  max-height: 150px;
   padding: 4px;
   overflow-y: auto;
   border: 1px solid var(--field-brd);
