@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('api', {
   setOpacity: (v) => ipcRenderer.invoke('win:opacity', v),
   setEditing: (on, ttl) => ipcRenderer.invoke('win:editing', on, ttl),
   testRemind: (mode) => ipcRenderer.invoke('remind:test', mode),
+  aiPresets: () => ipcRenderer.invoke('ai:presets'),
+  aiSummarize: (text) => ipcRenderer.invoke('ai:summarize', text),
+  aiModels: () => ipcRenderer.invoke('ai:models'),
+  aiTest: () => ipcRenderer.invoke('ai:test'),
   onSnap: (cb) => ipcRenderer.on('snap:state', (_e, state) => cb(state)),
   // 主进程独立改过任务数据（例如给逾期任务打「已确认」）时用它把本地副本对齐
   onTasksChanged: (cb) => ipcRenderer.on('tasks:changed', (_e, tasks) => cb(tasks)),

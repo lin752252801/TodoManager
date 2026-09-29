@@ -7,6 +7,7 @@ const { createTray, destroyTray } = require('./tray');
 const autostart = require('./autostart');
 const remind = require('./remind');
 const ball = require('./ball');
+const ai = require('./ai');
 
 let win = null;
 let snap = null;
@@ -245,6 +246,11 @@ function registerIpc() {
   ipcMain.handle('win:hide', () => hideToTray());
   ipcMain.handle('win:editing', (_e, on, ttl) => snap.setEditing(on, ttl));
   ipcMain.handle('remind:test', (_e, mode) => remind.test(mode));
+  // 密钥只留在主进程：渲染层只交出「要整理的原文」，拿不到也不需要拿到 key
+  ipcMain.handle('ai:presets', () => ai.PRESETS);
+  ipcMain.handle('ai:summarize', (_e, text) => ai.summarize(text));
+  ipcMain.handle('ai:models', () => ai.models());
+  ipcMain.handle('ai:test', () => ai.test());
 }
 
 app.whenReady().then(() => {

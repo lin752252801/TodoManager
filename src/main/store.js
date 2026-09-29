@@ -16,7 +16,14 @@ const DEFAULT_SETTINGS = {
   theme: 'light',
   ball: false,
   ballPos: null,
-  expandDelayMs: 120
+  expandDelayMs: 120,
+  // AI 总结：默认关。密钥明文躺在 config/settings.json 里，
+  // 发布包本来就不含 config，但设置页要提醒用户别把整个文件夹转给人家
+  aiSummary: false,
+  aiProvider: 'openai',
+  aiBaseUrl: 'https://api.openai.com/v1',
+  aiKey: '',
+  aiModel: ''
 };
 
 // 本次启动时发现的数据文件问题（读不出来、已备份到哪），供界面提示用。

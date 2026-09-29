@@ -160,6 +160,7 @@ function cardHtml(t) {
           <span class="tm crt">${CAL}${esc(fmtCreated(t.createdAt))}</span>
           ${due ? `<span class="tm d-${due.cls}">${CLOCK}${esc(due.text)}</span>` : ''}
           ${due && due.chip ? `<span class="chip ${due.cls === 'over' ? 'over' : 'soon'}">${esc(due.chip)}</span>` : ''}
+          ${t.aiTidied ? '<span class="chip ai">AI 已整理</span>' : ''}
         </div>
       </div>
       <span class="chev">${CHEV}</span>
@@ -861,7 +862,7 @@ function deriveTitle(raw) {
 function addTask() {
   const raw = addInput.value.trim();
   if (!raw) return;
-  state.tasks.push({
+  const task = {
     id: uid(),
     title: deriveTitle(raw) || '未命名待办',
     detail: raw,
@@ -871,11 +872,13 @@ function addTask() {
     createdAt: Date.now(),
     done: false,
     completedAt: null
-  });
+  };
+  state.tasks.push(task);
   addInput.value = '';
   autoGrow(addInput, 120);
   persist();
   render();
+  if (aiState.on) tidyWithAi(task.id, raw);
 }
 
 function setTab(tab) {
@@ -1041,6 +1044,160 @@ $('#set-autostart').addEventListener('change', async (e) => {
 });
 
 $('#set-test-remind').addEventListener('click', () => bridge.testRemind());
+
+// ---------- AI 总结 ----------
+// 顶部那颗开关和设置里那节管的是同一个值，改哪边都要把另一边和摘要一起更新
+let aiPresets = [];
+const aiState = { on: false, provider: 'openai', baseUrl: '', key: '', model: '' };
+
+function aiLabel() {
+  const p = aiPresets.find((x) => x.key === aiState.provider);
+  return p ? p.label : '自定义';
+}
+
+function paintAi() {
+  $('#ai-head').checked = aiState.on;
+  $('#set-ai').checked = aiState.on;
+  $('#ai-pill').classList.toggle('on', aiState.on);
+  $('#ai-provider').textContent = aiLabel();
+  const sum = $('#set-ai-sum');
+  if (!aiState.on) sum.textContent = '未开启';
+  else if (!aiState.baseUrl || !aiState.key || !aiState.model) sum.textContent = aiLabel() + ' · 还没填完';
+  else sum.textContent = aiLabel() + ' · ' + aiState.model;
+}
+
+function readAiSettings(s) {
+  aiState.on = !!s.aiSummary;
+  aiState.provider = s.aiProvider || 'openai';
+  aiState.baseUrl = s.aiBaseUrl || '';
+  aiState.key = s.aiKey || '';
+  aiState.model = s.aiModel || '';
+  $('#ai-base').value = aiState.baseUrl;
+  $('#ai-key').value = aiState.key;
+  $('#ai-model').value = aiState.model;
+  paintAi();
+}
+
+// 一律以主进程回读的结果为准：写盘失败时摘要不会假装「已保存」
+async function patchAi(patch) {
+  Object.assign(aiState, patch);
+  const s = await bridge.patchSettings(patch);
+  aiState.on = !!s.aiSummary;
+  aiState.provider = s.aiProvider || 'openai';
+  aiState.baseUrl = s.aiBaseUrl || '';
+  aiState.key = s.aiKey || '';
+  aiState.model = s.aiModel || '';
+  paintAi();
+}
+
+function paintProviders() {
+  $('#ai-provider-list').innerHTML = aiPresets
+    .map((p) => `<button type="button" data-k="${esc(p.key)}" class="${p.key === aiState.provider ? 'on' : ''}">${esc(p.label)}</button>`)
+    .join('');
+}
+
+function closeAiLists(except) {
+  if (except !== 'provider') $('#ai-provider-list').hidden = true;
+  if (except !== 'model') $('#ai-model-list').hidden = true;
+}
+
+$('#ai-head').addEventListener('change', (e) => patchAi({ aiSummary: e.target.checked }));
+$('#set-ai').addEventListener('change', (e) => patchAi({ aiSummary: e.target.checked }));
+$('#ai-provider').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const box = $('#ai-provider-list');
+  closeAiLists('provider');
+  box.hidden = !box.hidden;
+});
+$('#ai-provider-list').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const p = aiPresets.find((x) => x.key === b.dataset.k);
+  if (!p) return;
+  $('#ai-provider-list').hidden = true;
+  // 选「自定义」不清空已经填好的地址
+  if (p.url) $('#ai-base').value = p.url;
+  patchAi({ aiProvider: p.key, aiBaseUrl: p.url || aiState.baseUrl });
+});
+$('#ai-base').addEventListener('change', (e) => patchAi({ aiBaseUrl: e.target.value.trim() }));
+$('#ai-key').addEventListener('change', (e) => patchAi({ aiKey: e.target.value.trim() }));
+$('#ai-model').addEventListener('change', (e) => patchAi({ aiModel: e.target.value.trim() }));
+$('#ai-key-show').addEventListener('click', () => {
+  const i = $('#ai-key');
+  i.type = i.type === 'password' ? 'text' : 'password';
+  $('#ai-key-show').textContent = i.type === 'password' ? '显示' : '隐藏';
+  i.focus();
+});
+$('#ai-fetch').addEventListener('click', async () => {
+  const hint = $('#ai-model-hint');
+  const box = $('#ai-model-list');
+  closeAiLists('model');
+  hint.hidden = false;
+  hint.classList.remove('bad');
+  hint.textContent = '正在获取…';
+  box.hidden = true;
+  const r = await bridge.aiModels();
+  if (!r.ok) {
+    hint.classList.add('bad');
+    hint.textContent = r.error;
+    return;
+  }
+  hint.textContent = `取到 ${r.models.length} 个，点一下填进上面那格`;
+  box.innerHTML = r.models.map((m) => `<button type="button" data-m="${esc(m)}" class="${m === aiState.model ? 'on' : ''}">${esc(m)}</button>`).join('');
+  box.hidden = false;
+});
+$('#ai-model-list').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  $('#ai-model').value = b.dataset.m;
+  $('#ai-model-list').hidden = true;
+  patchAi({ aiModel: b.dataset.m });
+});
+$('#ai-test').addEventListener('click', async () => {
+  const out = $('#ai-test-r');
+  out.classList.remove('bad');
+  out.textContent = '测试中…';
+  const r = await bridge.aiTest();
+  out.textContent = r.ok ? `已连通 · ${r.count} 个模型 · ${r.ms}ms` : r.error;
+  out.classList.toggle('bad', !r.ok);
+});
+document.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('.fld2')) closeAiLists();
+});
+
+let aiNoteTimer = null;
+function noteAi(text, bad) {
+  const el = $('#ai-note');
+  el.textContent = text;
+  el.hidden = false;
+  el.classList.toggle('bad', !!bad);
+  clearTimeout(aiNoteTimer);
+  aiNoteTimer = setTimeout(() => {
+    el.hidden = true;
+  }, bad ? 6000 : 3000);
+}
+
+// 回车不该等网络：先按老规则把卡片摆出来，AI 回来再替换。
+// 只替换「用户没动过」的那一条，否则会把人家正在改的标题盖掉。
+async function tidyWithAi(id, raw) {
+  const before = find(id);
+  if (!before) return;
+  const was = { title: before.title, detail: before.detail };
+  const r = await bridge.aiSummarize(raw);
+  const t = find(id);
+  if (!t) return;
+  if (!r.ok) {
+    noteAi('AI 没整理：' + r.error + '（已按原规则添加）', true);
+    return;
+  }
+  if (t.title !== was.title || t.detail !== was.detail) return;
+  t.title = r.title;
+  if (r.detail) t.detail = r.detail;
+  t.aiTidied = true;
+  noteAi('已用 AI 整理标题和内容');
+  persist();
+  if (state.expandedId !== id) render();
+}
 
 // ---------- 主题 ----------
 // 分组标题下那行摘要：收起来也要看得见当前主题和透明度
@@ -1277,6 +1434,9 @@ async function boot() {
   state.expandedId = s.expandedId || null;
   $('#set-autostart').checked = !!s.autoStart;
   $('#set-ball').checked = !!s.ball;
+  aiPresets = (await bridge.aiPresets()) || [];
+  readAiSettings(s);
+  paintProviders();
   applyTheme(s.theme === 'dark' ? 'dark' : 'light');
   $('#set-data').textContent = s.dataDir;
   $('#set-config').textContent = s.configDir;

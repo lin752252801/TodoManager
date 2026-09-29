@@ -268,6 +268,166 @@ svg {
   margin-left: 7px;
 }
 
+/* ---------- 标题栏的 AI 总结开关 ---------- */
+/* 开关本体一律用全局那颗 40×22 的 checkbox，这里不改它的尺寸：
+   白点的位置是按 22 高算的，轨道一缩小白点就会戳出边界 */
+.ai-pill {
+  -webkit-app-region: no-drag;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 5px 0 10px;
+  border: 1px solid var(--field-brd);
+  border-radius: 99px;
+  background: var(--field-bg);
+  color: var(--txt3);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.ai-pill:hover {
+  border-color: var(--teal-brd);
+}
+
+.ai-pill svg {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.ai-pill.on {
+  color: var(--teal);
+  border-color: var(--teal-brd);
+  background: var(--teal-glow);
+}
+
+.ai-pill.on svg {
+  opacity: 1;
+}
+
+/* 窄面板放不下「AI 总结」四个字，只留图标和开关 */
+body.w-narrow .ai-pill .ai-t {
+  display: none;
+}
+
+body.w-narrow .ai-pill {
+  padding: 0 5px;
+}
+
+/* ---------- 设置里「AI 总结」那节的控件 ---------- */
+.fld2 {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.fld2 > span {
+  font-size: 11.5px;
+  color: var(--txt3);
+}
+
+.fld2 input,
+.fld2 .pick {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--field-brd);
+  border-radius: 9px;
+  background: var(--field-bg);
+  color: var(--txt);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.fld2 .pick {
+  text-align: left;
+  cursor: pointer;
+  /* 不画个小箭头的话它看起来就是一个只读文本框，没人会想到能点 */
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b9dc6' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px 12px;
+}
+
+.fld2 input:focus-visible,
+.fld2 .pick:focus-visible {
+  border-color: var(--teal-brd);
+  box-shadow: 0 0 0 3px var(--teal-glow);
+}
+
+.row2b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.row2b > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hint {
+  font-size: 11.5px;
+  color: var(--txt4);
+}
+
+.ai-list {
+  display: grid;
+  gap: 2px;
+  max-height: 168px;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--field-brd);
+  border-radius: 10px;
+  background: var(--pop-bg);
+}
+
+.ai-list button {
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--txt2);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ai-list button:hover {
+  background: var(--hover);
+  color: var(--txt);
+}
+
+.ai-list button.on {
+  color: var(--teal);
+  background: var(--teal-glow);
+}
+
+.chip.ai {
+  border-color: var(--teal-brd);
+  color: var(--teal);
+  background: var(--teal-glow);
+}
+
+/* AI 没整理成时的提示：挂在添加框上方，不弹窗打断输入 */
+.ai-note {
+  margin: 0 2px 6px;
+}
+
+.ai-note.bad {
+  color: var(--danger);
+}
+
 .sp {
   flex: 1 1 auto;
 }

@@ -14,6 +14,11 @@
           <div class="bar">
             <div class="date" id="hdr-date">—</div>
             <span class="sp"></span>
+            <label class="ai-pill" id="ai-pill" title="开着时，新添加的待办会用 AI 整理标题和内容">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 13.6 8.4 18.5 10 13.6 11.6 12 16.5 10.4 11.6 5.5 10 10.4 8.4Z" /><path d="M18.5 15.5 19.3 17.7 21.5 18.5 19.3 19.3 18.5 21.5 17.7 19.3 15.5 18.5 17.7 17.7Z" /></svg>
+              <span class="ai-t">AI 总结</span>
+              <input type="checkbox" id="ai-head" />
+            </label>
             <button id="btn-close" class="ic-btn" title="隐藏到系统托盘">
               <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8" /></svg>
             </button>
@@ -76,6 +81,54 @@
             </div>
             <div class="acc-c">
               <p class="note">每次启动软件都会弹一次，直到任务完成；已逾期的任务只弹一次，点「确定」后不再打扰。</p>
+            </div>
+          </div>
+
+          <div class="acc glass">
+            <div class="acc-h">
+              <span class="a-ic">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 13.6 8.4 18.5 10 13.6 11.6 12 16.5 10.4 11.6 5.5 10 10.4 8.4Z" /><path d="M18.5 15.5 19.3 17.7 21.5 18.5 19.3 19.3 18.5 21.5 17.7 19.3 15.5 18.5 17.7 17.7Z" /></svg>
+              </span>
+              <span class="a-t"><b>AI 总结</b><i id="set-ai-sum">未开启</i></span>
+              <input type="checkbox" id="set-ai" />
+              <span class="a-ch"></span>
+            </div>
+            <div class="acc-c">
+              <div class="r r-col">
+                <div class="fld2">
+                  <span>服务器</span>
+                  <button type="button" class="pick" id="ai-provider">OpenAI 兼容</button>
+                  <div class="ai-list" id="ai-provider-list" hidden></div>
+                </div>
+                <div class="fld2">
+                  <span>接入点</span>
+                  <input type="text" id="ai-base" placeholder="https://…/v1" />
+                </div>
+                <div class="fld2">
+                  <span>API 密钥</span>
+                  <div class="row2b">
+                    <input type="password" id="ai-key" placeholder="只存在本机 config 文件夹" autocomplete="off" />
+                    <button type="button" class="btn ghost" id="ai-key-show">显示</button>
+                  </div>
+                </div>
+                <div class="fld2">
+                  <span>模型</span>
+                  <div class="row2b">
+                    <input type="text" id="ai-model" placeholder="点右边获取，或直接输入" autocomplete="off" />
+                    <button type="button" class="btn ghost" id="ai-fetch">获取模型</button>
+                  </div>
+                  <div class="ai-list" id="ai-model-list" hidden></div>
+                  <p class="hint" id="ai-model-hint" hidden></p>
+                </div>
+                <div class="r">
+                  <span class="lbl">连通性</span>
+                  <button type="button" class="btn ghost" id="ai-test">测试连接</button>
+                  <span class="hint" id="ai-test-r"></span>
+                </div>
+              </div>
+              <p class="note">开着的时候，新添加的待办会把你输入的那段话整理成一句标题和一份条理化的详细内容。整理前会先按现有规则立刻建好，AI 回来再替换，期间你手动改过就不覆盖。</p>
+              <p class="note">关掉以后完全按现有规则添加，不会发出任何网络请求。</p>
+              <p class="note warn">密钥明文保存在本机 config 文件夹的 settings.json 里，把整个文件夹转给别人之前记得先删掉它。</p>
             </div>
           </div>
 
@@ -151,6 +204,7 @@
     </main>
 
     <div class="dockwrap">
+      <p class="hint ai-note" id="ai-note" hidden></p>
       <div class="add glass">
         <textarea id="add-input" rows="1" spellcheck="false" placeholder="输入内容，回车添加（自动取开头一句做标题，全文存入详细内容）"></textarea>
         <button id="add-btn" class="plus" title="添加任务">
