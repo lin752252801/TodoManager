@@ -1045,6 +1045,10 @@ $('#set-autostart').addEventListener('change', async (e) => {
 
 $('#set-test-remind').addEventListener('click', () => bridge.testRemind());
 
+// 添加框的两版提示语：textarea 只有一行高，超一行就会被裁。
+// 最窄面板（300px）下可用宽实测 210px，所以两条都控制在 202px 以内
+const AI_PH = { on: '输入内容，回车添加（AI 整理）', off: '输入内容，回车添加（标题取开头）' };
+
 // ---------- AI 总结 ----------
 // 顶部那颗开关和设置里那节管的是同一个值，改哪边都要把另一边和摘要一起更新
 let aiPresets = [];
@@ -1060,10 +1064,9 @@ function paintAi() {
   $('#set-ai').checked = aiState.on;
   $('#ai-pill').classList.toggle('on', aiState.on);
   $('#ai-provider').textContent = aiLabel();
-  // 添加框那行说明写死了「取开头一句做标题」，开关开着时这话就不成立了
-  addInput.placeholder = aiState.on
-    ? '输入内容，回车添加（AI 会把它整理成标题和详细内容）'
-    : '输入内容，回车添加（自动取开头一句做标题，全文存入详细内容）';
+  // 添加框那行说明原来写死「取开头一句做标题」，开关开着时不成立；换成随开关变的两版。
+  // textarea 只有一行高，长了会被裁成半截，所以两版都得短到一行装得下（实测过宽度）
+  addInput.placeholder = aiState.on ? AI_PH.on : AI_PH.off;
   const sum = $('#set-ai-sum');
   if (!aiState.on) sum.textContent = '未开启';
   else if (!aiState.baseUrl || !aiState.key || !aiState.model) sum.textContent = aiLabel() + ' · 还没填完';
@@ -1187,8 +1190,12 @@ $('#ai-test').addEventListener('click', async () => {
   out.textContent = r.ok ? `已连通 · ${r.ms}ms${r.reply ? ' · 回了「' + r.reply + '」' : ''}` : r.error;
   out.classList.toggle('bad', !r.ok);
 });
+// 判定要按「点的是不是这一份列表和它的触发按钮」来，不能整格 .fld2 都算里面：
+// 那样点接入点、点模型输入框都算「里面」，列表就一直收不起来
 document.addEventListener('pointerdown', (e) => {
-  if (!e.target.closest('.fld2')) closeAiLists();
+  const t = e.target;
+  if (!t.closest('#ai-provider, #ai-provider-list')) $('#ai-provider-list').hidden = true;
+  if (!t.closest('#ai-fetch, #ai-model-list')) $('#ai-model-list').hidden = true;
 });
 
 let aiNoteTimer = null;
