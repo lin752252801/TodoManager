@@ -115,11 +115,26 @@ async function models() {
   return { ok: true, models: list };
 }
 
+// 测试连接要验的是「这套配置能不能真的用起来」，不是能不能列出模型：
+// 拉一次最短的对话，密钥错、模型名错、额度用完都会在这里暴露出来
 async function test() {
+  const c = cfg();
+  if (!c.model) return { ok: false, error: '还没选模型' };
   const started = Date.now();
-  const r = await models();
+  const r = await call('/chat/completions', {
+    method: 'POST',
+    body: {
+      model: c.model,
+      max_tokens: 16,
+      messages: [{ role: 'user', content: '只回复两个字：收到' }]
+    }
+  });
   if (!r.ok) return r;
-  return { ok: true, count: r.models.length, ms: Date.now() - started };
+  let reply = '';
+  try {
+    reply = String(((r.data.choices || [])[0] || {}).message?.content || '').trim();
+  } catch {}
+  return { ok: true, ms: Date.now() - started, reply: reply.slice(0, 10) };
 }
 
 async function summarize(text) {

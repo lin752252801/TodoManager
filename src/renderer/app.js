@@ -1117,8 +1117,11 @@ function showAiList(sel) {
     const host = box.closest('.list');
     if (!host) return;
     const hr = host.getBoundingClientRect();
+    // 滚动容器的下沿在 dock 底下还有一段，那部分看着就是「被挡住看不全」
+    const dock = document.querySelector('.dockwrap');
+    const bottom = dock ? Math.min(hr.bottom, dock.getBoundingClientRect().top - 8) : hr.bottom;
     const br = box.getBoundingClientRect();
-    if (br.bottom > hr.bottom) host.scrollTop += br.bottom - hr.bottom + 2;
+    if (br.bottom > bottom) host.scrollTop += br.bottom - bottom;
     else if (br.top < hr.top) host.scrollTop -= hr.top - br.top + 2;
   });
 }
@@ -1181,7 +1184,7 @@ $('#ai-test').addEventListener('click', async () => {
   out.classList.remove('bad');
   out.textContent = '测试中…';
   const r = await bridge.aiTest();
-  out.textContent = r.ok ? `已连通 · ${r.count} 个模型 · ${r.ms}ms` : r.error;
+  out.textContent = r.ok ? `已连通 · ${r.ms}ms${r.reply ? ' · 回了「' + r.reply + '」' : ''}` : r.error;
   out.classList.toggle('bad', !r.ok);
 });
 document.addEventListener('pointerdown', (e) => {

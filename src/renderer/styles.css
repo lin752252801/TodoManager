@@ -387,10 +387,11 @@ body.w-narrow .ai-pill {
   color: var(--txt4);
 }
 
+/* 用块级而不是 grid：grid 容器一旦有了 max-height，条目多的那个列表行高会被压到
+   只剩 padding（实测 12px），文字行盒 16px 被 overflow:hidden 削成「只露一截」，
+   看上去就是一排小点 */
 .ai-list {
-  display: grid;
-  gap: 2px;
-  max-height: 150px;
+  max-height: 252px;
   padding: 4px;
   overflow-y: auto;
   border: 1px solid var(--field-brd);
@@ -398,12 +399,9 @@ body.w-narrow .ai-pill {
   background: var(--pop-bg);
 }
 
-/* 服务商只有八项，给够高度一次看全，别让人在里面滚 */
-.ai-list.tall {
-  max-height: 252px;
-}
-
 .ai-list button {
+  display: block;
+  width: 100%;
   padding: 6px 8px;
   border: 0;
   border-radius: 7px;
@@ -411,6 +409,7 @@ body.w-narrow .ai-pill {
   color: var(--txt2);
   font: inherit;
   font-size: 12px;
+  line-height: 16px;
   text-align: left;
   cursor: pointer;
   overflow: hidden;

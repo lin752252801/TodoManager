@@ -98,7 +98,7 @@
                 <div class="fld2">
                   <span>服务器</span>
                   <button type="button" class="pick" id="ai-provider">OpenAI 兼容</button>
-                  <div class="ai-list tall" id="ai-provider-list" hidden></div>
+                  <div class="ai-list" id="ai-provider-list" hidden></div>
                 </div>
                 <div class="fld2">
                   <span>接入点</span>
@@ -126,6 +126,7 @@
                 </div>
                 <p class="hint" id="ai-test-r"></p>
               </div>
+              <p class="note">「获取模型」是去接入点要一份模型清单；「测试连接」会真的发一条最短的消息，算一次调用，验的是密钥和这个模型能不能用起来。</p>
               <p class="note">开着的时候，新添加的待办会把你输入的那段话整理成一句标题加一段详细内容：事情简单就一句话说清，事情多会分成几点。整理前先按现有规则立刻建好，AI 回来再替换，这期间你手动改过就不覆盖。</p>
               <p class="note">关掉以后完全按现有规则添加，不会发出任何网络请求。</p>
               <p class="note warn">密钥明文保存在本机 config 文件夹的 settings.json 里，把整个文件夹转给别人之前记得先删掉它。</p>
