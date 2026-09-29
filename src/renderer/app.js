@@ -944,6 +944,16 @@ function applyTier() {
   return true;
 }
 
+/* 输入条那块是浮在列表上面的，一矮一高（切到已完成、AI 提示冒出来、换窄面板）
+   列表的可用高度都得跟着变。以前是按状态写死 padding-bottom，现在直接量它。 */
+function watchDockHeight() {
+  const dock = $('.dockwrap');
+  if (!dock || !window.ResizeObserver) return;
+  const push = () => document.documentElement.style.setProperty('--dock-h', dock.offsetHeight + 'px');
+  new ResizeObserver(push).observe(dock);
+  push();
+}
+
 listEl.addEventListener('click', (e) => {
   const card = e.target.closest('.card');
   if (!card) return;
@@ -1494,6 +1504,7 @@ async function boot() {
   });
   applySnap(await bridge.snapState());
   applyTier();
+  watchDockHeight();
   const opened = state.expandedId && find(state.expandedId);
   if (opened) beginDraft(opened);
   render();

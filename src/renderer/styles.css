@@ -191,14 +191,15 @@ svg {
   display: none !important;
 }
 
+/* 9px 是「摸得到」的宽度，胶囊靠这圈透明描边收成 5px 可见 */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 9px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--scroll);
   background-clip: padding-box;
-  border: 1px solid transparent;
+  border: 2px solid transparent;
   border-radius: 999px;
 }
 
@@ -527,15 +528,19 @@ body.w-narrow .ai-pill {
 }
 
 /* ---------- 滚动区 ---------- */
-/* 右侧留 8px 通道给滚动条：窗口最外 7px 是缩放手柄，压在上面就拖不动条了 */
+/* 滚动条要离窗口右缘的缩放手柄有几个像素的缝，否则想拖条先摸到缩放带、把窗口拖窄了。
+   整条 list 往里收 6px，卡片那侧用 padding 补回来，卡片右缘位置不动。
+   底部按 dockwrap 的真实高度收在输入条上面（--dock-h 由渲染层量好写进来），
+   不然滚动条会一路穿到半透明的输入条底下，看着像拖到了面板外面。 */
 .list {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  margin-right: 8px;
-  padding: 0 8px 150px var(--pad);
+  margin-right: 14px;
+  margin-bottom: calc(var(--dock-h, 129px) + 8px);
+  padding: 0 4px 14px var(--pad);
 }
 
 .empty {
@@ -2269,19 +2274,6 @@ body.w-narrow .detail textarea,
 body.w-narrow .date-btn,
 body.w-narrow .time-btn {
   font-size: 13px;
-}
-
-body.w-narrow .list {
-  padding-bottom: 142px;
-}
-
-/* 已完成没有输入条，把它原来占的 56px 收回来让给列表 */
-body.tab-done .list {
-  padding-bottom: 94px;
-}
-
-body.w-narrow.tab-done .list {
-  padding-bottom: 86px;
 }
 
 body.w-wide .date {
