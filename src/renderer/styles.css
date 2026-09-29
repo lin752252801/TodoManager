@@ -538,7 +538,7 @@ body.w-narrow .ai-pill {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  margin-right: 5px;
+  margin-right: 3px;
   margin-bottom: calc(var(--dock-h, 129px) + 8px);
   padding: 0 4px 14px var(--pad);
 }
@@ -778,9 +778,10 @@ body.w-narrow .ai-pill {
   border-color: var(--teal-brd);
 }
 
+/* 展开态只靠描边区分，不再套一圈 3px 光晕：深色主题下那圈半透明青
+   看着就是一层灰，用户明确不要。 */
 .card.is-open {
   border-color: var(--teal-brd);
-  box-shadow: var(--shadow), inset 0 1px 0 var(--glass-inset), 0 0 0 3px var(--teal-glow);
 }
 
 /* 焦点卡也是一张卡片，但圆角和间距按它自己那套；.card 在后头，只能再压一次 */
@@ -1821,11 +1822,12 @@ body.snap-top .grip-bottom i:nth-child(3) {
   left: 0;
 }
 
-/* 右侧缩放带收留 5px：最外 4~5px 本来就归 Windows 原生缩放手柄管（它盖在这层之上），
-   再往里就是滚动条，写宽了会把条子的落点吃掉、一拖就变成拖窗口。 */
+/* 右侧缩放带 3px，和滚动条（离边 3px）正好接上、不重叠：
+   压到条子上就会「想拖条子结果把窗口拖窄」。实测把这条藏起来，
+   只有最外 1~2px 还能靠 Windows 原生边拖动画大，所以 3px 是够用的下限。 */
 .rsz-e {
   right: 0;
-  width: 5px;
+  width: 3px;
 }
 
 .rsz-nw,
