@@ -529,7 +529,7 @@ body.w-narrow .ai-pill {
 
 /* ---------- 滚动区 ---------- */
 /* 滚动条要离窗口右缘的缩放手柄有几个像素的缝，否则想拖条先摸到缩放带、把窗口拖窄了。
-   整条 list 往里收 6px，卡片那侧用 padding 补回来，卡片右缘位置不动。
+   整条 list 的右边距就是滚动条离面板右边的距离；卡片那侧靠 padding 撑位置。
    底部按 dockwrap 的真实高度收在输入条上面（--dock-h 由渲染层量好写进来），
    不然滚动条会一路穿到半透明的输入条底下，看着像拖到了面板外面。 */
 .list {
@@ -538,7 +538,7 @@ body.w-narrow .ai-pill {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  margin-right: 14px;
+  margin-right: 9px;
   margin-bottom: calc(var(--dock-h, 129px) + 8px);
   padding: 0 4px 14px var(--pad);
 }
@@ -1821,9 +1821,11 @@ body.snap-top .grip-bottom i:nth-child(3) {
   left: 0;
 }
 
+/* 右侧缩放带收留 5px：最外 4~5px 本来就归 Windows 原生缩放手柄管（它盖在这层之上），
+   再往里就是滚动条，写宽了会把条子的落点吃掉、一拖就变成拖窗口。 */
 .rsz-e {
   right: 0;
-  width: 7px;
+  width: 5px;
 }
 
 .rsz-nw,
