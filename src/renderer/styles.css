@@ -813,6 +813,7 @@ body.w-narrow .ai-pill {
 }
 
 .head {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 11px;
@@ -857,6 +858,8 @@ body.w-narrow .ai-pill {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  /* 给贴在右端的展开箭头让位：18px 箭头 + 8px 间距 */
+  padding-right: 26px;
 }
 
 .n1 {
@@ -978,9 +981,13 @@ body.w-narrow .ai-pill {
   border-color: var(--danger-brd);
 }
 
+/* 展开箭头贴在标题行右端，不再单独占一列。
+   占列的话正文要在离卡片右缘 43px 处就截断（箭头本身只有 18px），
+   那条空白的竖块看着像卡片上盖了一层板，「剩 X 小时」这类胶囊也会被挤断。 */
 .chev {
-  flex: 0 0 auto;
-  align-self: center;
+  position: absolute;
+  right: 13px;
+  top: 14px;
   display: grid;
   place-items: center;
   width: 18px;
@@ -2232,6 +2239,12 @@ body.w-narrow {
 body.w-narrow .head {
   gap: 9px;
   padding: 11px 10px 11px 15px;
+}
+
+/* 窄面板那套内边距是 10px，箭头跟着贴过去，别留出一截悬空 */
+body.w-narrow .chev {
+  right: 10px;
+  top: 12px;
 }
 
 body.w-narrow .n1 {
