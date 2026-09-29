@@ -761,6 +761,12 @@ body.w-narrow .ai-pill {
   margin-bottom: 9px;
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
+  /* 卡片不要毛玻璃：它身后只有窗口自己那层不透明渐变，糊不出任何东西，
+     却会让 Chromium 给每张卡各开一块合成面；这块面一旦只刷新一部分，
+     卡片上就会出现一条直边的浅色「长方形」接缝（150% 缩放下实测到过一次）。
+     真正需要糊的是压在列表上方的 dock / 输入条 / 日历面板，那些留着。 */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .card:hover {
