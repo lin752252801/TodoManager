@@ -154,13 +154,13 @@ function cardHtml(t) {
         <div class="row1">
           <div class="n1">${esc(t.title)}</div>
           <span class="chip prio" title="点击展开后可修改优先级">${PRIO_LABEL[t.priority]}</span>
+          ${t.aiTidied ? '<span class="chip ai mini">AI</span>' : ''}
         </div>
         ${preview ? `<div class="pv">${esc(preview)}</div>` : ''}
         <div class="meta">
           <span class="tm crt">${CAL}${esc(fmtCreated(t.createdAt))}</span>
           ${due ? `<span class="tm d-${due.cls}">${CLOCK}${esc(due.text)}</span>` : ''}
           ${due && due.chip ? `<span class="chip ${due.cls === 'over' ? 'over' : 'soon'}">${esc(due.chip)}</span>` : ''}
-          ${t.aiTidied ? '<span class="chip ai">AI 已整理</span>' : ''}
         </div>
       </div>
       <span class="chev">${CHEV}</span>
@@ -198,6 +198,7 @@ function detailHtml(t) {
     </div>
     <div class="dstamp">
       ${CAL}<span>创建时间 ${fmtStamp(t.createdAt)}</span>${t.done ? `<span>· 完成时间 ${fmtStamp(t.completedAt)}</span>` : ''}
+      ${t.aiTidied ? '<span class="chip ai">AI 已整理</span>' : ''}
     </div>
     <div class="dfoot">
       <button class="btn del" data-act="del">删除</button>

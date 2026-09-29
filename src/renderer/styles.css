@@ -433,6 +433,18 @@ body.w-narrow .ai-pill {
   background: var(--teal-glow);
 }
 
+/* 收起态只留两个字母，放在标题行右端：meta 那行是 nowrap，
+   整条「AI 已整理」塞进去在窄面板会被裁成半截，看着像多了一块遮罩 */
+.chip.ai.mini {
+  padding: 1.5px 6px;
+  letter-spacing: 0.3px;
+}
+
+/* 展开态才在时间行右端给全称 */
+.dstamp .chip.ai {
+  margin-left: auto;
+}
+
 /* AI 没整理成时的提示：挂在添加框上方，不弹窗打断输入 */
 .ai-note {
   margin: 0 2px 6px;
