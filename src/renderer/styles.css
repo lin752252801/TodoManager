@@ -1520,6 +1520,53 @@ body.tab-done .add {
   font-variant-numeric: tabular-nums;
 }
 
+/* 提前天数步进器：和 .seg 同一套壳，中间是数值，两边减 / 加 */
+.stp {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--field-brd);
+  border-radius: 11px;
+  background: var(--seg-bg);
+}
+
+.stp-b {
+  width: 26px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--txt3);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stp-b:hover {
+  background: var(--hover);
+  color: var(--txt);
+}
+
+.stp-b:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+  color: var(--txt3);
+}
+
+.stp-v {
+  /* 定宽：0 显示成「当天」，数字位数变化时整块控件不该左右跳 */
+  width: 46px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--txt2);
+  font-variant-numeric: tabular-nums;
+}
+
 .note {
   margin: 0;
   font-size: 10.5px;

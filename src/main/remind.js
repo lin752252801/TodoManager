@@ -3,9 +3,21 @@ const path = require('path');
 const store = require('./store');
 
 const DAY = 86400000;
-// 提前几天开始提醒：高 3 天、中 2 天、低 1 天
-const LEAD = { high: 3, mid: 2, low: 1 };
+// 提前几天开始提醒：默认高 3 天、中 2 天、低 1 天，用户可以在设置里改（见 leadOf）
+const DEFAULT_LEAD = { high: 3, mid: 2, low: 1 };
+const LEAD_MIN = 0;
+const LEAD_MAX = 30;
 const PRIO_LABEL = { high: '高', mid: '中', low: '低' };
+
+// 每次数队列时现读设置，改完不用重启也不用等下一轮。
+// 0 是合法值（只在到期当天和逾期后提醒），所以不能用 || 兜默认。
+function leadOf(priority) {
+  const cfg = (store.getSettings() || {}).remindLead || DEFAULT_LEAD;
+  const raw = cfg[priority] != null ? cfg[priority] : DEFAULT_LEAD.mid;
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n)) return DEFAULT_LEAD.mid;
+  return Math.min(LEAD_MAX, Math.max(LEAD_MIN, n));
+}
 const CARD_W = 348;
 const CARD_H = 184;
 const MARGIN = 8; // 卡片外的透明留白，留给投影
@@ -63,7 +75,7 @@ function pending(now) {
       continue;
     }
     const days = Math.round((startOfDay(t.due) - startOfDay(now)) / DAY);
-    const lead = LEAD[t.priority] != null ? LEAD[t.priority] : LEAD.mid;
+    const lead = leadOf(t.priority);
     if (days > lead) continue;
     out.push({ task: t, overdue: false, days });
   }

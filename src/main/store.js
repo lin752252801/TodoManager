@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS = {
   ball: false,
   ballPos: null,
   expandDelayMs: 120,
+  // 截止提醒提前几天开始弹：默认高 3 / 中 2 / 低 1，0 表示只在到期当天及逾期后提醒
+  remindLead: { high: 3, mid: 2, low: 1 },
   // AI 总结：默认关。密钥明文躺在 config/settings.json 里，
   // 发布包本来就不含 config，但设置页要提醒用户别把整个文件夹转给人家
   aiSummary: false,
@@ -89,6 +91,9 @@ class Store {
     this.tasks = Array.isArray(todos.tasks) ? todos.tasks : [];
     this.settings = { ...DEFAULT_SETTINGS, ...readJson(paths.settingsFile, {}) };
     this.settings.window = { ...DEFAULT_SETTINGS.window, ...this.settings.window };
+    // 老版本的 settings.json 里根本没有 remindLead，或者只写了其中一档：整块替换会丢掉默认值，
+    // 所以和 window 一样按字段合，缺的那档自动落回默认。
+    this.settings.remindLead = { ...DEFAULT_SETTINGS.remindLead, ...(this.settings.remindLead || {}) };
     // 首启即落盘，保证 data/todos.json 与 config/settings.json 一定存在
     if (!fs.existsSync(paths.todosFile)) writeJson(paths.todosFile, { version: 1, tasks: this.tasks });
     if (!fs.existsSync(paths.settingsFile)) writeJson(paths.settingsFile, this.settings);

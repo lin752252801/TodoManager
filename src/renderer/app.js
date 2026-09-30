@@ -1273,6 +1273,53 @@ $('#set-ball').addEventListener('change', async (e) => {
   e.target.checked = !!s.ball;
 });
 
+// ---------- 截止提醒提前几天 ----------
+const LEAD_MIN = 0;
+const LEAD_MAX = 30;
+const LEAD_ORDER = ['high', 'mid', 'low'];
+const LEAD_LABEL = { high: '高', mid: '中', low: '低' };
+let lead = { high: 3, mid: 2, low: 1 };
+
+function leadText(n) {
+  return n === 0 ? '当天' : n + ' 天';
+}
+
+function paintLead() {
+  for (const p of LEAD_ORDER) {
+    const box = document.querySelector(`.stp[data-p="${p}"]`);
+    if (!box) continue;
+    const n = lead[p];
+    box.querySelector(`[data-v="${p}"]`).textContent = leadText(n);
+    box.querySelector('[data-d="-1"]').disabled = n <= LEAD_MIN;
+    box.querySelector('[data-d="1"]').disabled = n >= LEAD_MAX;
+  }
+  const sum = $('#set-lead-sum');
+  if (sum) sum.textContent = LEAD_ORDER.map((p) => LEAD_LABEL[p] + ' ' + leadText(lead[p])).join(' / ');
+}
+
+function initLead(cfg) {
+  lead = { ...lead, ...(cfg || {}) };
+  for (const p of LEAD_ORDER) {
+    const n = Math.round(Number(lead[p]));
+    lead[p] = Number.isFinite(n) ? Math.min(LEAD_MAX, Math.max(LEAD_MIN, n)) : 3;
+  }
+  paintLead();
+}
+
+$$('.stp').forEach((box) => {
+  box.addEventListener('click', async (e) => {
+    const b = e.target.closest('.stp-b');
+    if (!b || b.disabled) return;
+    const p = box.dataset.p;
+    const next = Math.min(LEAD_MAX, Math.max(LEAD_MIN, lead[p] + Number(b.dataset.d)));
+    if (next === lead[p]) return;
+    lead[p] = next;
+    paintLead();
+    const s = await bridge.patchSettings({ remindLead: { ...lead } });
+    initLead(s && s.remindLead);
+  });
+});
+
 // ---------- 窗口透明度 ----------
 const opacityRange = $('#set-opacity-range');
 const opacityValue = $('#set-opacity');
@@ -1478,6 +1525,7 @@ async function boot() {
   state.expandedId = s.expandedId || null;
   $('#set-autostart').checked = !!s.autoStart;
   $('#set-ball').checked = !!s.ball;
+  initLead(s.remindLead);
   aiPresets = (await bridge.aiPresets()) || [];
   readAiSettings(s);
   paintProviders();
