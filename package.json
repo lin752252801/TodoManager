@@ -1,6 +1,6 @@
 {
   "name": "todo-manager",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "TodoManager",
   "main": "src/main/main.js",
   "author": "Ekko",
