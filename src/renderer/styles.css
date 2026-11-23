@@ -2024,6 +2024,10 @@ body.snap-left .rsz-se {
 .cal {
   position: fixed;
   z-index: 60;
+  /* 面板向上翻时会盖到标题栏那条拖拽区（.top），整块必须声明成不可拖拽：
+     不声明的话，落在「7 项待办 / 进度条」那段上的点击会被当成拖窗口，
+     月份左右箭头就成了「看得见、点不动」 */
+  -webkit-app-region: no-drag;
   padding: 12px;
   border-radius: 16px;
   border: 1px solid var(--glass-brd);
@@ -2182,6 +2186,8 @@ button.cal-m:hover {
 .tp {
   position: fixed;
   z-index: 60;
+  /* 和 .cal 同理：向上翻时会压在标题栏拖拽区上 */
+  -webkit-app-region: no-drag;
   padding: 12px;
   border-radius: 16px;
   border: 1px solid var(--glass-brd);
