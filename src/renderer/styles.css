@@ -527,6 +527,66 @@ body.w-narrow .ai-pill {
   font-variant-numeric: tabular-nums;
 }
 
+/* 搜索条：夹在统计行和列表之间。它在标题栏的拖拽区里，
+   不写 no-drag 的话点进输入框会变成拖窗口 */
+.search {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 0 9px;
+  height: 32px;
+  border: 1px solid var(--field-brd);
+  border-radius: 11px;
+  background: var(--field-bg);
+  color: var(--txt3);
+  transition: border-color 0.15s;
+}
+
+.search:focus-within {
+  border-color: var(--teal-brd);
+}
+
+.search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--txt);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.search input::placeholder {
+  color: var(--txt4);
+}
+
+.search .sx {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--txt3);
+  cursor: pointer;
+}
+
+.search .sx:hover {
+  background: var(--hover);
+  color: var(--txt);
+}
+
+.search-hit {
+  margin: 8px 1px 0;
+  font-size: 10.5px;
+  color: var(--txt3);
+}
+
 /* ---------- 滚动区 ---------- */
 /* 滚动条要离窗口右缘的缩放手柄有几个像素的缝，否则想拖条先摸到缩放带、把窗口拖窄了。
    整条 list 的右边距就是滚动条离面板右边的距离；卡片那侧靠 padding 撑位置。
@@ -1029,6 +1089,15 @@ body.w-narrow .ai-pill {
   font-size: 10.5px;
   letter-spacing: 0.5px;
   color: var(--txt3);
+}
+
+/* 带开关的一行：标签在左、开关在右，上下间距和别的字段一致 */
+.fld.fld-sw {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
 }
 
 .detail input[type="text"],
@@ -1565,6 +1634,11 @@ body.tab-done .add {
   font-size: 11.5px;
   color: var(--txt2);
   font-variant-numeric: tabular-nums;
+}
+
+/* 「60 分钟」比「当天」宽一截，单独放宽 */
+.stp-v-wide {
+  width: 58px;
 }
 
 .note {

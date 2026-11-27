@@ -7,6 +7,11 @@ const DAY = 86400000;
 const DEFAULT_LEAD = { high: 3, mid: 2, low: 1 };
 const LEAD_MIN = 0;
 const LEAD_MAX = 30;
+// 到点提醒：每 20 秒扫一次；「稍后」10 分钟后再响
+const DUE_TICK_MS = 20000;
+const DUE_SNOOZE_MS = 10 * 60000;
+// 开机前就已经到期的那些交给逾期通道，这里只接到点时刻前后才入队的
+const bootAt = Date.now();
 const PRIO_LABEL = { high: '高', mid: '中', low: '低' };
 
 // 每次数队列时现读设置，改完不用重启也不用等下一轮。
@@ -84,6 +89,11 @@ function pending(now) {
 }
 
 function noteOf(item) {
+  if (item.atDue) {
+    // 到点那条：提前弹的时候才需要「还有 N 分钟」，正点弹标题已经说明了
+    const m = Math.round((item.lead || 0) / 60000);
+    return m > 0 ? `还有 ${m} 分钟到期` : '';
+  }
   return item.overdue
     ? `已逾期 ${Math.max(1, Math.ceil((Date.now() - item.task.due) / DAY))} 天`
     : remaining(item.days);
@@ -107,6 +117,8 @@ function payloadOf(item, more) {
   return {
     id: t.id,
     overdue: item.overdue,
+    atDue: !!item.atDue,
+    leadM: item.atDue ? Math.round((item.lead || 0) / 60000) : 0,
     sample: !!item.sample,
     title: t.title,
     detail: detailOf(t),
@@ -227,7 +239,20 @@ function answer(action) {
   const item = current;
   if (!popup || popup.isDestroyed()) return;
   popup.close(); // closed 事件里继续队列
-  if (!item || item.sample || action !== 'ok') return;
+  if (!item || item.sample) return;
+  // 到点提醒：「确定」就是收到（dueFired 已经写过），「稍后」十分钟后再响一次
+  if (item.atDue) {
+    if (action !== 'later') return;
+    const t = store.getTasks().find((x) => x.id === item.task.id);
+    if (t && !t.done) {
+      t.dueFired = false;
+      t.dueSnooze = Date.now() + DUE_SNOOZE_MS;
+      store.setTasks(store.getTasks());
+      broadcastTasks();
+    }
+    return;
+  }
+  if (action !== 'ok') return;
   // 逾期项只提醒这一次：点「确定」才算确认收到，「稍后」下次开机还会弹
   if (item.list) {
     for (const one of item.items) if (one.overdue) ack(one);
@@ -240,6 +265,44 @@ function run() {
   queue = pending(Date.now());
   current = null;
   next();
+}
+
+// 提前几分钟：设置里是 0~60 的整数分钟，非法值一律按 0
+function dueLeadMs() {
+  const n = Math.round(Number((store.getSettings() || {}).remindDueLead));
+  return (Number.isFinite(n) ? Math.min(60, Math.max(0, n)) : 0) * 60000;
+}
+
+// 到点通道：只看自己打开了「到点弹窗提醒」的待办。
+// 弹过就写 dueFired，改截止时间 / 重新打开开关时由渲染层清掉。
+function dueTick() {
+  if ((store.getSettings() || {}).remindDue === false) return;
+  const lead = dueLeadMs();
+  const now = Date.now();
+  const fire = [];
+  let changed = false;
+  for (const t of store.getTasks()) {
+    if (t.done || !t.due || !t.dueRemind || t.dueFired) continue;
+    if (t.dueSnooze && now < t.dueSnooze) continue;
+    if (t.due <= bootAt) {
+      // 开机前就到期了：逾期通道会管，这里只把标记补上，免得以后重开应用再响一次
+      t.dueFired = true;
+      changed = true;
+      continue;
+    }
+    if (now < t.due - lead) continue;
+    t.dueFired = true;
+    t.dueSnooze = 0;
+    changed = true;
+    fire.push({ task: t, overdue: false, days: 0, atDue: true, lead });
+  }
+  if (changed) {
+    store.setTasks(store.getTasks());
+    broadcastTasks();
+  }
+  if (!fire.length) return;
+  for (const item of fire) queue.push(item);
+  if (!popup) next();
 }
 
 // 设置页的「看看弹窗长什么样」：不进队列、不落任何状态
@@ -282,6 +345,8 @@ function test(mode) {
 function init(mainGetter) {
   getMain = mainGetter;
   ipcMain.on('remind:answer', (_e, action) => answer(action === 'ok' ? 'ok' : 'later'));
+  setInterval(dueTick, DUE_TICK_MS);
+  setTimeout(dueTick, 3000);
 }
 
-module.exports = { init, run, test };
+module.exports = { init, run, test, dueTick };

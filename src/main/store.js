@@ -19,6 +19,10 @@ const DEFAULT_SETTINGS = {
   expandDelayMs: 120,
   // 截止提醒提前几天开始弹：默认高 3 / 中 2 / 低 1，0 表示只在到期当天及逾期后提醒
   remindLead: { high: 3, mid: 2, low: 1 },
+  // 到点弹窗提醒：总开关默认开，每个待办自己在编辑页里打开才会弹（默认关）；
+  // remindDueLead 是提前几分钟，0 = 到截止时间那一刻弹
+  remindDue: true,
+  remindDueLead: 0,
   // AI 总结：默认关。密钥明文躺在 config/settings.json 里，
   // 发布包本来就不含 config，但设置页要提醒用户别把整个文件夹转给人家
   aiSummary: false,

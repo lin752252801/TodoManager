@@ -28,7 +28,13 @@ if (p && p.list) {
     .join('');
   body.innerHTML = `<div class="stat">${esc(stat)}</div><div class="list">${rows}</div>`;
 } else if (p) {
-  document.getElementById('h').textContent = p.overdue ? '待办任务已截止' : '待办任务即将截止';
+  document.getElementById('h').textContent = p.atDue
+    ? p.leadM > 0
+      ? '快到截止时间了'
+      : '已到截止时间'
+    : p.overdue
+      ? '待办任务已截止'
+      : '待办任务即将截止';
   if (p.overdue) document.getElementById('card').classList.add('is-over');
   setText('due', p.dueText);
   setText('note', p.note ? `（${p.note}）` : '');

@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-*/
 
 # 程序运行时写在 exe 旁边的用户数据，不进仓库
 data/

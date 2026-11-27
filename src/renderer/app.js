@@ -14,12 +14,16 @@ const state = {
   expandedId: null,
   draft: null,
   view: 'tasks',
-  tier: 'mid'
+  tier: 'mid',
+  query: ''
 };
 
 const listEl = $('#list');
 const emptyEl = $('#empty');
 const addInput = $('#add-input');
+const searchInput = $('#search-input');
+const searchClear = $('#search-clear');
+const searchHit = $('#search-hit');
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -121,6 +125,50 @@ function visibleTasks() {
   });
 }
 
+// 搜索：标题和详细内容一起匹配、不区分大小写；空格分开的多个词要全部命中。
+// 搜索期间跨「待办 / 已完成」一起列，未完成排前面，其次优先级、截止时间。
+function searchMatches() {
+  const q = state.query.trim().toLowerCase();
+  if (!q) return null;
+  const tokens = q.split(/\s+/);
+  const hit = (t) => {
+    const hay = ((t.title || '') + '\n' + (t.detail || '')).toLowerCase();
+    return tokens.every((k) => hay.includes(k));
+  };
+  return state.tasks
+    .filter(hit)
+    .sort(
+      (a, b) =>
+        Number(!!a.done) - Number(!!b.done) ||
+        (PRIO[a.priority] ?? 9) - (PRIO[b.priority] ?? 9) ||
+        (a.due ?? Infinity) - (b.due ?? Infinity)
+    );
+}
+
+// 搜索时收起正在编辑的卡片：列表要整个换成结果，草稿留着会指向一张不在列表里的卡
+function setQuery(v) {
+  state.query = v;
+  searchClear.hidden = !searchInput.value;
+  if (state.query.trim() && state.expandedId) {
+    state.expandedId = null;
+    state.draft = null;
+  }
+  render();
+}
+
+searchInput.addEventListener('input', () => setQuery(searchInput.value));
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  e.preventDefault();
+  searchInput.value = '';
+  setQuery('');
+});
+searchClear.addEventListener('click', () => {
+  searchInput.value = '';
+  setQuery('');
+  searchInput.focus();
+});
+
 const CLOCK =
   '<svg viewBox="0 0 16 16" width="12" height="12"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 4.6V8l2.4 1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
 const TICK = '<svg viewBox="0 0 16 16" width="12" height="12"><path d="m3.6 8.3 3 3 5.8-6.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -196,6 +244,9 @@ function detailHtml(t) {
           .join('')}
       </div>
     </div>
+    <label class="fld fld-sw"><span>到点弹窗提醒</span>
+      <input type="checkbox" data-f="dueRemind"${d.dueRemind ? ' checked' : ''}${d.due ? '' : ' disabled'}${d.due ? '' : ' title="先选截止时间"'} />
+    </label>
     <div class="dstamp">
       ${CAL}<span>创建时间 ${fmtStamp(t.createdAt)}</span>${t.done ? `<span>· 完成时间 ${fmtStamp(t.completedAt)}</span>` : ''}
       ${t.aiTidied ? '<span class="chip ai">AI 已整理</span>' : ''}
@@ -221,7 +272,8 @@ function beginDraft(t) {
     detail: t.detail || '',
     due: t.due,
     dueAllDay: !!t.dueAllDay,
-    priority: t.priority
+    priority: t.priority,
+    dueRemind: !!t.dueRemind
   };
 }
 
@@ -233,7 +285,8 @@ function isDirty(t) {
     d.detail !== (t.detail || '') ||
     d.due !== t.due ||
     !!d.dueAllDay !== !!t.dueAllDay ||
-    d.priority !== t.priority
+    d.priority !== t.priority ||
+    !!d.dueRemind !== !!t.dueRemind
   );
 }
 
@@ -250,11 +303,19 @@ function commitDraft() {
   if (!d) return;
   const t = find(d.id);
   if (t) {
+    const dueChanged = d.due !== t.due;
+    const remindOn = !!d.dueRemind && !t.dueRemind;
     t.title = d.title.trim().slice(0, 200) || '（未命名）';
     t.detail = d.detail;
     t.due = d.due;
     t.dueAllDay = !!d.dueAllDay;
     t.priority = d.priority;
+    t.dueRemind = !!d.dueRemind && !!d.due;
+    // 改了截止时间、或者刚把开关打开：允许它重新响一次
+    if (dueChanged || remindOn) {
+      t.dueFired = false;
+      t.dueSnooze = 0;
+    }
     persist();
   }
   state.draft = null;
@@ -799,13 +860,25 @@ function render() {
   closeCal();
   closeTp();
   const scroll = listEl.scrollTop;
-  const items = visibleTasks();
-  const fc = focusTask(items);
-  const rest = fc ? items.filter((t) => t !== fc) : items;
-  listEl.innerHTML = (fc ? focusHtml(fc) : '') + groupsHtml(rest);
-  const none = items.length === 0;
-  emptyEl.hidden = !none;
-  if (none) emptyEl.textContent = state.tab === 'done' ? '还没有已完成的任务' : '暂无待办，先添加一条';
+  const matches = searchMatches();
+  if (matches) {
+    // 搜索结果是平铺的：不分「今天/明天」组，也不插最紧急那张
+    listEl.innerHTML = matches.map(cardHtml).join('');
+    const none = matches.length === 0;
+    emptyEl.hidden = !none;
+    if (none) emptyEl.textContent = '没有匹配的待办';
+    searchHit.hidden = false;
+    searchHit.textContent = none ? '没有找到匹配的待办' : `找到 ${matches.length} 条匹配的待办`;
+  } else {
+    const items = visibleTasks();
+    const fc = focusTask(items);
+    const rest = fc ? items.filter((t) => t !== fc) : items;
+    listEl.innerHTML = (fc ? focusHtml(fc) : '') + groupsHtml(rest);
+    const none = items.length === 0;
+    emptyEl.hidden = !none;
+    if (none) emptyEl.textContent = state.tab === 'done' ? '还没有已完成的任务' : '暂无待办，先添加一条';
+    searchHit.hidden = true;
+  }
   // 已完成只用来查看，新任务从「待办」加，所以这一栏不需要输入框，把高度让给列表
   document.body.classList.toggle('tab-done', state.tab === 'done');
   growAll();
@@ -885,6 +958,12 @@ function addTask() {
 function setTab(tab) {
   state.tab = tab;
   patchSetting({ tab });
+  // 切页签等于换一份列表，搜索条件跟着清掉，不然会以为待办没了
+  if (state.query) {
+    state.query = '';
+    searchInput.value = '';
+    searchClear.hidden = true;
+  }
   render();
 }
 
@@ -1013,7 +1092,8 @@ listEl.addEventListener('input', (e) => {
   else if (f === 'detail') {
     d.detail = e.target.value;
     autoGrow(e.target, 260);
-  } else return;
+  } else if (f === 'dueRemind') d.dueRemind = !!e.target.checked;
+  else return;
   syncDirty(card, t);
 });
 
@@ -1306,10 +1386,46 @@ function initLead(cfg) {
   paintLead();
 }
 
+// ---------- 到点提醒 ----------
+// 提前分钟数：0 = 到点那一刻；上限 60 分钟
+const DUE_MAX = 60;
+let dueLead = 0;
+
+function paintDueLead() {
+  const box = document.querySelector('.stp[data-due]');
+  if (!box) return;
+  box.querySelector('[data-dv="due"]').textContent = dueLead + ' 分钟';
+  box.querySelector('[data-dd="-1"]').disabled = dueLead <= 0;
+  box.querySelector('[data-dd="1"]').disabled = dueLead >= DUE_MAX;
+}
+
+function initDue(s) {
+  $('#set-due').checked = s.remindDue !== false;
+  const n = Math.round(Number(s.remindDueLead));
+  dueLead = Number.isFinite(n) ? Math.min(DUE_MAX, Math.max(0, n)) : 0;
+  paintDueLead();
+}
+
+$('#set-due').addEventListener('change', async (e) => {
+  const s = await bridge.patchSettings({ remindDue: e.target.checked });
+  e.target.checked = s.remindDue !== false;
+});
+
 $$('.stp').forEach((box) => {
   box.addEventListener('click', async (e) => {
     const b = e.target.closest('.stp-b');
     if (!b || b.disabled) return;
+    if (box.dataset.due) {
+      const next = Math.min(DUE_MAX, Math.max(0, dueLead + Number(b.dataset.dd)));
+      if (next === dueLead) return;
+      dueLead = next;
+      paintDueLead();
+      const s = await bridge.patchSettings({ remindDueLead: dueLead });
+      const n = Math.round(Number(s && s.remindDueLead));
+      dueLead = Number.isFinite(n) ? Math.min(DUE_MAX, Math.max(0, n)) : 0;
+      paintDueLead();
+      return;
+    }
     const p = box.dataset.p;
     const next = Math.min(LEAD_MAX, Math.max(LEAD_MIN, lead[p] + Number(b.dataset.d)));
     if (next === lead[p]) return;
@@ -1526,6 +1642,7 @@ async function boot() {
   $('#set-autostart').checked = !!s.autoStart;
   $('#set-ball').checked = !!s.ball;
   initLead(s.remindLead);
+  initDue(s);
   aiPresets = (await bridge.aiPresets()) || [];
   readAiSettings(s);
   paintProviders();

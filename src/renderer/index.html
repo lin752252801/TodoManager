@@ -25,6 +25,14 @@
           </div>
           <div class="sub" id="hdr-sub"></div>
           <div class="prog"><i class="track"><b id="hdr-fill"></b></i><span class="num" id="hdr-num"></span></div>
+          <div class="search">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.2" /><path d="m16 16 4 4" /></svg>
+            <input type="text" id="search-input" placeholder="搜索标题或内容" spellcheck="false" autocomplete="off" />
+            <button type="button" class="sx" id="search-clear" title="清空搜索" hidden>
+              <svg viewBox="0 0 12 12" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8" /></svg>
+            </button>
+          </div>
+          <p class="search-hit" id="search-hit" hidden></p>
         </header>
 
         <div class="list" id="list"></div>
@@ -104,6 +112,19 @@
                   <button type="button" class="stp-b" data-d="1" title="提前天数增加">+</button>
                 </div>
               </div>
+              <div class="r">
+                <span class="lbl">到点弹窗提醒</span>
+                <input type="checkbox" id="set-due" />
+              </div>
+              <div class="r">
+                <span class="lbl">到点前提前</span>
+                <div class="stp" data-due="1">
+                  <button type="button" class="stp-b" data-dd="-1" title="提前分钟减少">−</button>
+                  <span class="stp-v stp-v-wide" data-dv="due">0 分钟</span>
+                  <button type="button" class="stp-b" data-dd="1" title="提前分钟增加">+</button>
+                </div>
+              </div>
+              <p class="note">到截止时间那一刻弹窗提醒，只对在待办里自己打开「到点弹窗提醒」的任务生效；点「稍后」十分钟后再响一次。</p>
               <p class="note">到期前这么多天开始提醒，每天弹一次；调到 0 就只在到期当天和逾期后提醒。</p>
               <p class="note">每次启动软件都会弹一次，直到任务完成；已逾期的任务只弹一次，点「确定」后不再打扰。</p>
             </div>
