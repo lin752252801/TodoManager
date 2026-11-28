@@ -182,14 +182,18 @@ class SnapController {
   // 吸附态被缩放：贴边那一侧重新对齐，展开位记成新尺寸，松手后仍会正常收起
   syncNormalAfterResize(b) {
     const wa = this.workArea();
-    const n = this.clamp(b, wa);
-    if (this.side === 'right') n.x = wa.x + wa.width - n.width;
-    else if (this.side === 'left') n.x = wa.x;
-    else n.y = wa.y;
+    const n = this.alignToSide(this.clamp(b, wa), this.side, wa);
     this.normal = n;
     this.pending = null;
     this.normalDirty = true;
     if (this.mode === 'hidden') this.applyBounds(this.hiddenBounds(n, this.side, wa), true);
+  }
+
+  alignToSide(n, side, wa) {
+    if (side === 'right') n.x = wa.x + wa.width - n.width;
+    else if (side === 'left') n.x = wa.x;
+    else n.y = wa.y;
+    return n;
   }
 
   // 渲染层自绘手柄会显式告诉我们按下/松开；系统边框缩放没有这个信号，靠 RESIZE_SETTLE_MS 兜
@@ -229,6 +233,10 @@ class SnapController {
     const start = Date.now();
     this.animating = true;
     const step = () => {
+      if (this.win.isDestroyed()) {
+        this.stopAnim();
+        return;
+      }
       const t = Math.min(1, (Date.now() - start) / ANIM_MS);
       const e = easeOutCubic(t);
       this.applyBounds(
@@ -261,10 +269,10 @@ class SnapController {
     };
   }
 
-  // 自由状态下不允许窗口被推到几乎看不见的位置
+  // 自由状态下不允许窗口被推到几乎看不见的位置；顶部不得高出工作区上缘，免得标题栏拖拽区不可达
   ensureVisible(b, wa) {
     const x = Math.max(wa.x - b.width + MIN_VIS, Math.min(b.x, wa.x + wa.width - MIN_VIS));
-    const y = Math.max(wa.y - b.height + MIN_VIS, Math.min(b.y, wa.y + wa.height - MIN_VIS));
+    const y = Math.max(wa.y, Math.min(b.y, wa.y + wa.height - MIN_VIS));
     if (x === b.x && y === b.y) return false;
     this.applyBounds({ ...b, x, y });
     return true;
@@ -299,11 +307,8 @@ class SnapController {
 
   snap(side) {
     const wa = this.workArea();
-    const normal = this.clamp(this.win.getBounds(), wa);
     // 展开位贴齐屏幕边缘，否则停在边缘的鼠标不在窗口内，会立刻又被收回
-    if (side === 'left') normal.x = wa.x;
-    else if (side === 'right') normal.x = wa.x + wa.width - normal.width;
-    else normal.y = wa.y;
+    const normal = this.alignToSide(this.clamp(this.win.getBounds(), wa), side, wa);
     this.side = side;
     this.normal = normal;
     this.mode = 'hidden';
@@ -362,10 +367,16 @@ class SnapController {
   }
 
   reconcileDisplays() {
-    if (this.mode === 'free') return;
+    if (this.win.isDestroyed()) return;
+    if (this.mode === 'free') {
+      const b = this.win.getBounds();
+      this.ensureVisible(b, screen.getDisplayMatching(b).workArea);
+      return;
+    }
     const wa = screen.getDisplayMatching(this.normal || this.win.getBounds()).workArea;
-    this.normal = this.clamp(this.normal || this.win.getBounds(), wa);
+    this.normal = this.alignToSide(this.clamp(this.normal || this.win.getBounds(), wa), this.side, wa);
     this.applyBounds(this.mode === 'hidden' ? this.hiddenBounds(this.normal, this.side, wa) : this.normal);
+    this.emitState();
   }
 
   // 编辑态只「租」一段时间：输入框拿到焦点后可能永远等不到 focusout（拖完滑块焦点还留在上面、
@@ -401,6 +412,12 @@ class SnapController {
 
     if (this.normalDirty && !resizing) {
       this.normalDirty = false;
+      if (this.mode === 'expanded' && this.normal) {
+        const b = this.win.getBounds();
+        if (b.x !== this.normal.x || b.y !== this.normal.y || b.width !== this.normal.width || b.height !== this.normal.height) {
+          this.applyBounds(this.normal);
+        }
+      }
       this.emitState();
     }
 

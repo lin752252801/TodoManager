@@ -603,14 +603,21 @@ body.w-narrow .ai-pill {
   padding: 0 4px 14px var(--pad);
 }
 
+.list:empty {
+  flex: 0 0 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 .empty {
-  position: absolute;
-  left: 0;
-  right: 8px;
-  top: 118px;
-  bottom: 190px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-bottom: calc(var(--dock-h, 129px) + 8px);
+  padding: 12px var(--pad);
   display: grid;
   place-items: center;
+  text-align: center;
   pointer-events: none;
   color: var(--txt4);
   font-size: 13px;

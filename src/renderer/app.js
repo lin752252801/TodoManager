@@ -311,7 +311,8 @@ function commitDraft() {
     t.dueAllDay = !!d.dueAllDay;
     t.priority = d.priority;
     t.dueRemind = !!d.dueRemind && !!d.due;
-    // 改了截止时间、或者刚把开关打开：允许它重新响一次
+    // 改了截止时间：清除已确认逾期标记；改了截止时间或重开提醒：允许重新响一次
+    if (dueChanged) t.overdueAcked = false;
     if (dueChanged || remindOn) {
       t.dueFired = false;
       t.dueSnooze = 0;
@@ -522,6 +523,7 @@ function pickDay(ms) {
   if (!ms) {
     d.due = null;
     d.dueAllDay = false;
+    d.dueRemind = false;
   } else {
     // 已经填过具体时刻就只换日期，把时分保留下来；否则记成「当天结束前」
     const keep = d.due && !d.dueAllDay ? new Date(d.due) : null;
@@ -544,6 +546,13 @@ function pickDay(ms) {
     dv.classList.toggle('ph', !d.due);
   }
   paintTimeBtn(card, d);
+  const sw = card && card.querySelector('[data-f="dueRemind"]');
+  if (sw) {
+    sw.disabled = !d.due;
+    sw.checked = !!d.dueRemind;
+    if (d.due) sw.removeAttribute('title');
+    else sw.title = '先选截止时间';
+  }
   if (!d.due) closeTp();
   if (card) {
     const t = find(card.dataset.id);
@@ -800,8 +809,11 @@ const GROUPS_ACTIVE = [
 
 const GROUPS_DONE = [
   ['今天完成', 'var(--teal)', (t, now) => dayGap(t.completedAt || t.createdAt, now) === 0],
-  ['昨天完成', 'var(--teal)', (t, now) => dayGap(t.completedAt || t.createdAt, now) === 1],
-  ['本周更早', 'var(--blue)', (t, now) => dayGap(t.completedAt || t.createdAt, now) <= 6],
+  ['昨天完成', 'var(--teal)', (t, now) => dayGap(t.completedAt || t.createdAt, now) === -1],
+  ['本周更早', 'var(--blue)', (t, now) => {
+    const g = dayGap(t.completedAt || t.createdAt, now);
+    return g >= -6 && g < 0;
+  }],
   ['更早', 'var(--txt4)', () => true]
 ];
 
@@ -1563,7 +1575,7 @@ window.addEventListener('blur', endResize);
 function isTextField(el) {
   // 只放行文字框：滑块拿到焦点后不会失焦，那些框要能直接敲键盘改，
   // 这些一律不算「编辑中」，否则鼠标移出界面窗口收不起来。
-  return !!el && el.matches('textarea, input[type="text"]');
+  return !!el && el.matches('textarea, input[type="text"], input[type="password"]');
 }
 
 // 日历 / 时间面板是我们自己画的浮层，鼠标移过去选日期就等于离开了卡片的范围，

@@ -84,5 +84,10 @@ async function up(allowClean) {
   if (!(await ball.dragEnd()) && allowClean) clean();
 }
 
+window.addEventListener('pointermove', (e) => {
+  if (down && e.buttons === 0) up(true);
+});
 window.addEventListener('pointerup', () => up(true));
 window.addEventListener('pointercancel', () => up(false));
+window.addEventListener('blur', () => up(false));
+el.addEventListener('lostpointercapture', () => up(false));

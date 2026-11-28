@@ -186,14 +186,14 @@ function resizeTo(b, dir) {
     x = Math.max(wa.x, x);
     width = Math.min(Math.max(right - x, MIN_W), wa.width);
   } else if (d.includes('e')) {
-    width = Math.min(Math.max(width, MIN_W), wa.x + wa.width - x);
+    width = Math.max(MIN_W, Math.min(Math.max(width, MIN_W), wa.x + wa.width - x));
   }
   if (d.includes('n')) {
     const bottom = y + height;
     y = Math.max(wa.y, y);
     height = Math.min(Math.max(bottom - y, MIN_H), wa.height);
   } else if (d.includes('s')) {
-    height = Math.min(Math.max(height, MIN_H), wa.y + wa.height - y);
+    height = Math.max(MIN_H, Math.min(Math.max(height, MIN_H), wa.y + wa.height - y));
   }
   // 没被拖的那一维整份照抄：它来自渲染层按下时冻结的窗口矩形，本来就在工作区内，
   // 再夹一次只会把对面那条边推走 —— 这正是这个 bug 的成因。
@@ -212,11 +212,23 @@ function registerIpc() {
   ipcMain.handle('tasks:get', () => store.getTasks());
   ipcMain.handle('tasks:set', (_e, tasks) => {
     const list = Array.isArray(tasks) ? tasks : [];
-    // 渲染层手里那份是启动时结构化克隆出来的副本，不含主进程打过的 overdueAcked。
-    // 整份替换会把「逾期只提醒一次」的标记抹掉，所以按 id 把主进程已有的标记并回来，
-    // 堵住「ack 刚广播出去、渲染层上一笔整份写回还在路上」这个在途窗口。
-    const acked = new Set(store.getTasks().filter((t) => t && t.overdueAcked).map((t) => t.id));
-    if (acked.size) for (const t of list) if (t && acked.has(t.id)) t.overdueAcked = true;
+    // 渲染层手里那份是结构化克隆出来的副本，不含主进程独立打过的 overdueAcked / dueFired / dueSnooze。
+    // 同一条任务的 due 和 dueRemind 开关没变时，把主进程的提醒状态并回来，
+    // 堵住「主进程刚写完标记、渲染层上一笔整份写回还在路上」的在途窗口；
+    // 若用户改了截止日期或重新打开到点提醒，则放行渲染层的重置。
+    const byId = new Map(store.getTasks().filter((t) => t && t.id).map((t) => [t.id, t]));
+    for (const t of list) {
+      if (!t || !t.id) continue;
+      const prev = byId.get(t.id);
+      if (!prev) continue;
+      const dueChanged = t.due !== prev.due;
+      const remindOn = !!t.dueRemind && !prev.dueRemind;
+      if (!dueChanged && prev.overdueAcked) t.overdueAcked = true;
+      if (!dueChanged && !remindOn) {
+        if ('dueFired' in prev) t.dueFired = prev.dueFired;
+        if ('dueSnooze' in prev) t.dueSnooze = prev.dueSnooze;
+      }
+    }
     store.setTasks(list);
     return store.getTasks();
   });

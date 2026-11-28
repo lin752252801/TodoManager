@@ -44,6 +44,7 @@ let getMain = () => null;
 let queue = [];
 let current = null;
 let popup = null;
+const payloads = new Map();
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -68,6 +69,14 @@ function remaining(days) {
   return `还有 ${days} 天`;
 }
 
+function inDueWindow(t, now) {
+  if ((store.getSettings() || {}).remindDue === false) return false;
+  if (!t.dueRemind || t.dueFired) return false;
+  if (t.due <= bootAt && !(t.dueSnooze > bootAt)) return false;
+  if (t.dueSnooze && now < t.dueSnooze) return false;
+  return now >= t.due - dueLeadMs();
+}
+
 // 逾期且没确认过的排最前，其余按截止时间就近
 function pending(now) {
   const out = [];
@@ -79,6 +88,8 @@ function pending(now) {
       out.push({ task: t, overdue: true, days: 0 });
       continue;
     }
+    // 启动时已经进入「到点弹窗提醒」触发窗的任务交给 dueTick 走更精确的到点弹窗，避免连弹两次
+    if (inDueWindow(t, now)) continue;
     const days = Math.round((startOfDay(t.due) - startOfDay(now)) / DAY);
     const lead = leadOf(t.priority);
     if (days > lead) continue;
@@ -135,7 +146,14 @@ function listPayload(items) {
     list: true,
     items: items.map((i) => {
       const t = i.task;
-      return { id: t.id, title: t.title, dueText: fmtDue(t), note: noteOf(i), overdue: i.overdue, prio: PRIO_LABEL[t.priority] || '中' };
+      return {
+        id: t.id,
+        title: t.title,
+        dueText: fmtDue(t),
+        note: noteOf(i) || (i.atDue ? '已到时间' : ''),
+        overdue: i.overdue,
+        prio: PRIO_LABEL[t.priority] || '中'
+      };
     }),
     od,
     soon: items.length - od
@@ -158,12 +176,18 @@ function sizeOf(payload) {
   return { w: CARD_W, h: Math.min(LIST_MAX_H, LIST_BASE_H + n * LIST_ROW_H + (n - 1) * LIST_GAP) };
 }
 
-function openWindow(payload) {
-  if (popup && !popup.isDestroyed()) popup.destroy();
+function openWindow(payload, item) {
+  // 先清空全局句柄再销毁旧窗口：防止旧窗体的 closed 事件同步或异步覆盖新弹窗的 popup/current
+  const old = popup;
+  popup = null;
+  if (old && !old.isDestroyed()) old.destroy();
+  current = item || null;
   const wa = area();
-  const { w, h } = sizeOf(payload);
+  const raw = sizeOf(payload);
+  const w = Math.min(raw.w, Math.max(240, wa.width - MARGIN * 2));
+  const h = Math.min(raw.h, Math.max(180, wa.height - MARGIN * 2));
   const box = { w: w + MARGIN * 2, h: h + MARGIN * 2 };
-  popup = new BrowserWindow({
+  const win = new BrowserWindow({
     x: Math.round(wa.x + (wa.width - box.w) / 2),
     y: Math.round(wa.y + (wa.height - box.h) / 2),
     width: box.w,
@@ -181,9 +205,7 @@ function openWindow(payload) {
     hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, 'remind-preload.js'),
-      // 编码后再传：JSON 里的空格和引号会破坏渲染进程的命令行（实测直接导致 ERR_FAILED）
       additionalArguments: [
-        '--remind-payload=' + encodeURIComponent(JSON.stringify(payload)),
         '--remind-th=' + (store.getSettings().theme === 'dark' ? 'dark' : 'light')
       ],
       contextIsolation: true,
@@ -192,15 +214,21 @@ function openWindow(payload) {
       devTools: !app.isPackaged
     }
   });
-  popup.setAlwaysOnTop(true, 'screen-saver');
-  popup.loadFile(path.join(__dirname, '..', 'renderer', 'remind.html'));
-  popup.once('ready-to-show', () => popup.show());
-  // 用户直接关掉窗口（Alt+F4）也算「稍后」，队列要继续走
-  popup.on('closed', () => {
+  popup = win;
+  const wcId = win.webContents.id;
+  payloads.set(wcId, payload);
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.loadFile(path.join(__dirname, '..', 'renderer', 'remind.html'));
+  win.once('ready-to-show', () => {
+    if (!win.isDestroyed()) win.show();
+  });
+  // 用户直接关掉窗口（Alt+F4）也算「稍后」，队列要继续走（含预览期间新排入的真实提醒）
+  win.on('closed', () => {
+    payloads.delete(wcId);
+    if (popup !== win) return;
     popup = null;
-    const item = current;
     current = null;
-    if (item && !item.sample) next();
+    next();
   });
 }
 
@@ -209,13 +237,11 @@ function next() {
   // 攒得多就一次列清楚，逐条点确定会让人直接关掉程序
   if (queue.length >= MERGE_AT) {
     const items = queue.splice(0, queue.length);
-    current = { list: true, items, sample: false };
-    openWindow(listPayload(items));
+    openWindow(listPayload(items), { list: true, items, sample: false });
     return;
   }
   const item = queue.shift();
-  current = item;
-  openWindow(payloadOf(item, queue.length));
+  openWindow(payloadOf(item, queue.length), item);
 }
 
 // 主进程把「已确认」写进内存，并立刻广播给渲染层。
@@ -240,13 +266,21 @@ function answer(action) {
   if (!popup || popup.isDestroyed()) return;
   popup.close(); // closed 事件里继续队列
   if (!item || item.sample) return;
-  // 到点提醒：「确定」就是收到（dueFired 已经写过），「稍后」十分钟后再响一次
-  if (item.atDue) {
-    if (action !== 'later') return;
-    const t = store.getTasks().find((x) => x.id === item.task.id);
-    if (t && !t.done) {
-      t.dueFired = false;
-      t.dueSnooze = Date.now() + DUE_SNOOZE_MS;
+  const list = item.list ? item.items : [item];
+  // 到点提醒：「确定」就是收到（dueFired 已经写过），「稍后」十分钟后再响一次（单条与合并清单通用）
+  if (action === 'later') {
+    const snoozeAt = Date.now() + DUE_SNOOZE_MS;
+    let snoozed = false;
+    for (const one of list) {
+      if (!one.atDue) continue;
+      const t = store.getTasks().find((x) => x.id === one.task.id);
+      if (t && !t.done) {
+        t.dueFired = false;
+        t.dueSnooze = snoozeAt;
+        snoozed = true;
+      }
+    }
+    if (snoozed) {
       store.setTasks(store.getTasks());
       broadcastTasks();
     }
@@ -254,11 +288,7 @@ function answer(action) {
   }
   if (action !== 'ok') return;
   // 逾期项只提醒这一次：点「确定」才算确认收到，「稍后」下次开机还会弹
-  if (item.list) {
-    for (const one of item.items) if (one.overdue) ack(one);
-  } else if (item.overdue) {
-    ack(item);
-  }
+  for (const one of list) if (one.overdue) ack(one);
 }
 
 function run() {
@@ -273,6 +303,13 @@ function dueLeadMs() {
   return (Number.isFinite(n) ? Math.min(60, Math.max(0, n)) : 0) * 60000;
 }
 
+function isQueuedOrShown(id) {
+  if (queue.some((x) => x.task && x.task.id === id)) return true;
+  if (!current || current.sample) return false;
+  if (current.list) return current.items.some((x) => x.task && x.task.id === id);
+  return !!(current.task && current.task.id === id);
+}
+
 // 到点通道：只看自己打开了「到点弹窗提醒」的待办。
 // 弹过就写 dueFired，改截止时间 / 重新打开开关时由渲染层清掉。
 function dueTick() {
@@ -284,8 +321,8 @@ function dueTick() {
   for (const t of store.getTasks()) {
     if (t.done || !t.due || !t.dueRemind || t.dueFired) continue;
     if (t.dueSnooze && now < t.dueSnooze) continue;
-    if (t.due <= bootAt) {
-      // 开机前就到期了：逾期通道会管，这里只把标记补上，免得以后重开应用再响一次
+    // 开机前就到期了且并非处于有效「稍后」期内：逾期通道会管，这里只把标记补上，免得以后重开应用再响一次
+    if (t.due <= bootAt && !(t.dueSnooze > bootAt)) {
       t.dueFired = true;
       changed = true;
       continue;
@@ -294,7 +331,7 @@ function dueTick() {
     t.dueFired = true;
     t.dueSnooze = 0;
     changed = true;
-    fire.push({ task: t, overdue: false, days: 0, atDue: true, lead });
+    if (!isQueuedOrShown(t.id)) fire.push({ task: t, overdue: false, days: 0, atDue: true, lead });
   }
   if (changed) {
     store.setTasks(store.getTasks());
@@ -305,10 +342,13 @@ function dueTick() {
   if (!popup) next();
 }
 
-// 设置页的「看看弹窗长什么样」：不进队列、不落任何状态
+// 设置页的「看看弹窗长什么样」：不落任何状态；若正在展示真实提醒，先退回队首等预览关掉再继续
 function test(mode) {
   const now = Date.now();
-  queue = [];
+  if (current && !current.sample) {
+    if (current.list) queue.unshift(...current.items);
+    else queue.unshift(current);
+  }
   if (mode === 'list') {
     const mk = (i, title, due, priority, overdue) => ({
       task: { id: '__sample' + i + '__', title, due, dueAllDay: false, priority },
@@ -321,11 +361,10 @@ function test(mode) {
       mk(3, '提交报销单', now + 1 * DAY, 'high', false),
       mk(4, '预约牙科检查', now + 3 * DAY, 'low', false)
     ];
-    current = { list: true, items, sample: true };
-    openWindow(listPayload(items));
+    openWindow(listPayload(items), { list: true, items, sample: true });
     return;
   }
-  current = {
+  const sampleItem = {
     task: {
       id: '__sample__',
       title: '整理月度工作报表',
@@ -339,11 +378,14 @@ function test(mode) {
     days: 0,
     sample: true
   };
-  openWindow(payloadOf(current, 0));
+  openWindow(payloadOf(sampleItem, 0), sampleItem);
 }
 
 function init(mainGetter) {
   getMain = mainGetter;
+  ipcMain.on('remind:payload', (e) => {
+    e.returnValue = payloads.get(e.sender.id) || null;
+  });
   ipcMain.on('remind:answer', (_e, action) => answer(action === 'ok' ? 'ok' : 'later'));
   setInterval(dueTick, DUE_TICK_MS);
   setTimeout(dueTick, 3000);
